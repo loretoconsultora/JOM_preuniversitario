@@ -65,6 +65,18 @@ export default async function NuevaTareaPage() {
             />
           </label>
 
+          <label className="flex flex-col gap-1.5 text-sm">
+            Archivos adjuntos
+            <input
+              type="file"
+              name="archivos"
+              multiple
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.webp"
+              className="glass rounded-xl px-4 py-2.5 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-jom-ink file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-jom-white focus:outline-none focus:ring-2 focus:ring-jom-pink dark:file:bg-jom-white dark:file:text-jom-ink"
+            />
+            <span className="text-muted text-xs">PDF, Word, PowerPoint o imágenes. Máximo ~10 MB en total.</span>
+          </label>
+
           <button
             type="submit"
             className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"

@@ -7,7 +7,7 @@ import type { Role } from "@/types/database";
 
 const ALL_ITEMS = [
   { href: "/portal/tareas", label: "Tareas", icon: ClipboardList, roles: ["alumno", "docente", "directora"] },
-  { href: "/portal/evaluaciones", label: "Evaluaciones", icon: GraduationCap, roles: ["alumno", "docente", "directora"] },
+  { href: "/portal/calificaciones", label: "Calificaciones", icon: GraduationCap, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/alumnos", label: "Alumnos", icon: Users, roles: ["docente", "directora"] },
 ] as const;
 

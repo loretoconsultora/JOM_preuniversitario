@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Plus, Trash2, CalendarDays } from "lucide-react";
+import { Plus, Trash2, CalendarDays, GraduationCap, Paperclip, Download } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Materia, Tarea } from "@/types/database";
+import type { Calificacion, Materia, Tarea, TareaArchivo } from "@/types/database";
+import { TAREAS_BUCKET, formatBytes } from "@/lib/storage";
 import { eliminarTarea } from "./actions";
 
 function formatFecha(fecha: string | null) {
@@ -17,17 +18,65 @@ function formatFecha(fecha: string | null) {
 export default async function TareasPage() {
   const profile = await requireProfile();
   const supabase = await createClient();
+  const isDocente = profile.role === "docente";
+  const isStaff = profile.role === "docente" || profile.role === "directora";
 
-  const [{ data: materias }, { data: tareas }] = await Promise.all([
-    supabase.from("materias").select("*").order("nombre"),
-    supabase.from("tareas").select("*").order("fecha_entrega", { ascending: true, nullsFirst: false }),
-  ]);
+  const [{ data: materias }, { data: tareas }, { data: calificaciones }, alumnosCountResult] =
+    await Promise.all([
+      supabase.from("materias").select("*").order("nombre"),
+      supabase.from("tareas").select("*").order("fecha_entrega", { ascending: true, nullsFirst: false }),
+      // RLS ya filtra: el alumno solo ve las suyas, docente/directora ven todas.
+      supabase.from("calificaciones").select("*").not("tarea_id", "is", null),
+      isStaff
+        ? supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "alumno")
+        : Promise.resolve({ count: 0 }),
+    ]);
 
   const materiasList = (materias ?? []) as Materia[];
   const tareasList = (tareas ?? []) as Tarea[];
+  const calificacionesList = (calificaciones ?? []) as Calificacion[];
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));
+  const totalAlumnos = alumnosCountResult.count ?? 0;
 
-  const isDocente = profile.role === "docente";
+  const tareaIds = tareasList.map((t) => t.id);
+  const { data: archivos } =
+    tareaIds.length > 0
+      ? await supabase.from("tarea_archivos").select("*").in("tarea_id", tareaIds)
+      : { data: [] as TareaArchivo[] };
+  const archivosList = (archivos ?? []) as TareaArchivo[];
+
+  const signedUrlByPath = new Map<string, string>();
+  if (archivosList.length > 0) {
+    const { data: signedUrls } = await supabase.storage
+      .from(TAREAS_BUCKET)
+      .createSignedUrls(
+        archivosList.map((a) => a.storage_path),
+        3600
+      );
+    for (const s of signedUrls ?? []) {
+      if (s.signedUrl) signedUrlByPath.set(s.path ?? "", s.signedUrl);
+    }
+  }
+
+  const archivosPorTarea = new Map<string, TareaArchivo[]>();
+  for (const archivo of archivosList) {
+    const list = archivosPorTarea.get(archivo.tarea_id) ?? [];
+    list.push(archivo);
+    archivosPorTarea.set(archivo.tarea_id, list);
+  }
+
+  const calificacionPropiaPorTarea = new Map<string, Calificacion>();
+  const calificadosPorTarea = new Map<string, Set<string>>();
+  for (const cal of calificacionesList) {
+    if (!cal.tarea_id) continue;
+    if (!isStaff) {
+      calificacionPropiaPorTarea.set(cal.tarea_id, cal);
+    } else {
+      const set = calificadosPorTarea.get(cal.tarea_id) ?? new Set<string>();
+      set.add(cal.alumno_id);
+      calificadosPorTarea.set(cal.tarea_id, set);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,6 +104,10 @@ export default async function TareasPage() {
           {tareasList.map((tarea) => {
             const materia = materiaById.get(tarea.materia_id);
             const fecha = formatFecha(tarea.fecha_entrega);
+            const calificacionPropia = calificacionPropiaPorTarea.get(tarea.id);
+            const numCalificados = calificadosPorTarea.get(tarea.id)?.size ?? 0;
+            const tareaArchivos = archivosPorTarea.get(tarea.id) ?? [];
+
             return (
               <div key={tarea.id} className="glass flex flex-col gap-3 rounded-2xl p-5">
                 <div className="flex items-start justify-between gap-3">
@@ -84,6 +137,61 @@ export default async function TareasPage() {
                     <CalendarDays size={13} /> Entrega: {fecha}
                   </div>
                 )}
+
+                {tareaArchivos.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    {tareaArchivos.map((archivo) => {
+                      const url = signedUrlByPath.get(archivo.storage_path);
+                      return (
+                        <a
+                          key={archivo.id}
+                          href={url ?? "#"}
+                          download={archivo.nombre_archivo}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-opacity hover:opacity-80"
+                        >
+                          <Paperclip size={13} className="text-muted shrink-0" />
+                          <span className="flex-1 truncate">{archivo.nombre_archivo}</span>
+                          {archivo.tamano_bytes && (
+                            <span className="text-muted shrink-0">{formatBytes(archivo.tamano_bytes)}</span>
+                          )}
+                          <Download size={13} className="text-muted shrink-0" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="mt-1 flex items-center justify-between">
+                  {!isStaff && (
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                        calificacionPropia
+                          ? "bg-jom-pink/30 text-jom-ink dark:text-jom-white"
+                          : "bg-black/5 text-muted dark:bg-white/10"
+                      }`}
+                    >
+                      <GraduationCap size={13} />
+                      {calificacionPropia
+                        ? `Calificación: ${calificacionPropia.calificacion ?? "—"}`
+                        : "Sin calificar"}
+                    </span>
+                  )}
+                  {isStaff && (
+                    <span className="text-muted text-xs">
+                      {numCalificados}/{totalAlumnos} alumnos calificados
+                    </span>
+                  )}
+                  {isDocente && (
+                    <Link
+                      href={`/portal/calificaciones/nueva?tarea_id=${tarea.id}`}
+                      className="text-xs font-medium underline underline-offset-2 hover:text-jom-pink"
+                    >
+                      Calificar
+                    </Link>
+                  )}
+                </div>
               </div>
             );
           })}

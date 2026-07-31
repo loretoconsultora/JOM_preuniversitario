@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Plus, ChevronRight, KeyRound } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Evaluacion, Profile } from "@/types/database";
+import type { Calificacion, Profile } from "@/types/database";
 
 export default async function AlumnosPage({
   searchParams,
@@ -13,19 +13,19 @@ export default async function AlumnosPage({
   const { nuevo_correo, nueva_password } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: alumnos }, { data: evaluaciones }] = await Promise.all([
+  const [{ data: alumnos }, { data: calificaciones }] = await Promise.all([
     supabase.from("profiles").select("*").eq("role", "alumno").order("nombre_completo"),
-    supabase.from("evaluaciones").select("*"),
+    supabase.from("calificaciones").select("*"),
   ]);
 
   const alumnosList = (alumnos ?? []) as Profile[];
-  const evaluacionesList = (evaluaciones ?? []) as Evaluacion[];
+  const calificacionesList = (calificaciones ?? []) as Calificacion[];
 
   const promedioPorAlumno = new Map<string, number>();
   for (const alumno of alumnosList) {
-    const notas = evaluacionesList
-      .filter((e) => e.alumno_id === alumno.id && e.calificacion !== null)
-      .map((e) => e.calificacion as number);
+    const notas = calificacionesList
+      .filter((c) => c.alumno_id === alumno.id && c.calificacion !== null)
+      .map((c) => c.calificacion as number);
     if (notas.length > 0) {
       promedioPorAlumno.set(alumno.id, notas.reduce((a, b) => a + b, 0) / notas.length);
     }
