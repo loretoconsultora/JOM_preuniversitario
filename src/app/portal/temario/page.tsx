@@ -24,49 +24,62 @@ export default async function TemarioPage({
   const supabase = await createClient();
   const isDocente = profile.role === "docente";
 
-  const { data: materias } = await supabase.from("materias").select("*").order("nombre");
+  const { data: materias, error: eMaterias } = await supabase.from("materias").select("*").order("nombre");
+  if (eMaterias) throw new Error(`materias: ${eMaterias.message}`);
   const materiasList = (materias ?? []) as Materia[];
   const materiaSeleccionada = materiaSeleccionadaParam || materiasList[0]?.id || "";
 
-  const { data: temas } = await supabase
+  const { data: temas, error: eTemas } = await supabase
     .from("temas")
     .select("*")
     .eq("materia_id", materiaSeleccionada)
     .order("orden");
+  if (eTemas) throw new Error(`temas: ${eTemas.message}`);
   const temasList = (temas ?? []) as Tema[];
   const temaIds = temasList.map((t) => t.id);
 
-  const [{ data: archivos }, { data: subtemas }] =
+  const [{ data: archivos, error: eArchivos }, { data: subtemas, error: eSubtemas }] =
     temaIds.length > 0
       ? await Promise.all([
           supabase.from("tema_archivos").select("*").in("tema_id", temaIds),
           supabase.from("subtemas").select("*").in("tema_id", temaIds).order("orden"),
         ])
-      : [{ data: [] as TemaArchivo[] }, { data: [] as Subtema[] }];
+      : [
+          { data: [] as TemaArchivo[], error: null },
+          { data: [] as Subtema[], error: null },
+        ];
+  if (eArchivos) throw new Error(`tema_archivos: ${eArchivos.message}`);
+  if (eSubtemas) throw new Error(`subtemas: ${eSubtemas.message}`);
 
   const archivosList = (archivos ?? []) as TemaArchivo[];
   const subtemasList = (subtemas ?? []) as Subtema[];
   const subtemaIds = subtemasList.map((s) => s.id);
 
-  const [{ data: ejercicios }, { data: videos }] =
+  const [{ data: ejercicios, error: eEjercicios }, { data: videos, error: eVideos }] =
     subtemaIds.length > 0
       ? await Promise.all([
           supabase.from("subtema_ejercicios").select("*").in("subtema_id", subtemaIds).order("orden"),
           supabase.from("subtema_videos").select("*").in("subtema_id", subtemaIds).order("orden"),
         ])
-      : [{ data: [] as SubtemaEjercicio[] }, { data: [] as SubtemaVideo[] }];
+      : [
+          { data: [] as SubtemaEjercicio[], error: null },
+          { data: [] as SubtemaVideo[], error: null },
+        ];
+  if (eEjercicios) throw new Error(`subtema_ejercicios: ${eEjercicios.message}`);
+  if (eVideos) throw new Error(`subtema_videos: ${eVideos.message}`);
 
   const ejerciciosList = (ejercicios ?? []) as SubtemaEjercicio[];
   const videosList = (videos ?? []) as SubtemaVideo[];
 
   const signedUrlByPath = new Map<string, string>();
   if (archivosList.length > 0) {
-    const { data: signedUrls } = await supabase.storage
+    const { data: signedUrls, error: eSigned } = await supabase.storage
       .from(TEMARIO_BUCKET)
       .createSignedUrls(
         archivosList.map((a) => a.storage_path),
         3600
       );
+    if (eSigned) throw new Error(`signed urls: ${eSigned.message}`);
     for (const s of signedUrls ?? []) {
       if (s.signedUrl) signedUrlByPath.set(s.path ?? "", s.signedUrl);
     }

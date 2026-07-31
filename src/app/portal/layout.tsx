@@ -22,16 +22,21 @@ export default async function PortalLayout({
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 px-4 pt-4 sm:px-6">
-        <div className="glass-strong mx-auto flex max-w-5xl items-center justify-between rounded-2xl px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-6">
-            <JomLogo className="h-9 w-auto" />
-            <PortalNav role={profile.role} />
+        <div className="glass-strong mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-2xl px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-6">
+            <JomLogo className="h-9 w-auto shrink-0" />
+            <div className="min-w-0 overflow-x-auto">
+              <PortalNav role={profile.role} />
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/portal/perfil" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+          <div className="flex shrink-0 items-center gap-3">
+            <Link
+              href="/portal/perfil"
+              className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-80"
+            >
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium leading-tight">{profile.nombre_completo}</p>
-                <p className="text-muted text-xs leading-tight">{ROLE_LABEL[profile.role]}</p>
+                <p className="whitespace-nowrap text-sm font-medium leading-tight">{profile.nombre_completo}</p>
+                <p className="text-muted whitespace-nowrap text-xs leading-tight">{ROLE_LABEL[profile.role]}</p>
               </div>
               <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
                 {profile.avatar_url ? (
@@ -50,7 +55,7 @@ export default async function PortalLayout({
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
     </div>
   );
 }

@@ -27,7 +27,7 @@ export function PortalNav({ role }: { role: Role }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors sm:px-4 ${
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-colors sm:px-4 ${
               active
                 ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink"
                 : "text-fg/70 hover:bg-black/5 dark:hover:bg-white/10"
