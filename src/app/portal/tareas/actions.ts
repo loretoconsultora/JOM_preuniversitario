@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TAREAS_BUCKET } from "@/lib/storage";
+import { sanitizeRichText } from "@/lib/sanitize";
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
@@ -41,7 +42,7 @@ export async function crearTarea(formData: FormData) {
 
   const materia_id = String(formData.get("materia_id") || "");
   const titulo = String(formData.get("titulo") || "").trim();
-  const descripcion = String(formData.get("descripcion") || "").trim();
+  const descripcion = sanitizeRichText(String(formData.get("descripcion") || ""));
   const fecha_entrega = String(formData.get("fecha_entrega") || "");
   const archivos = formData.getAll("archivos").filter((f): f is File => f instanceof File && f.size > 0);
 
@@ -75,7 +76,7 @@ export async function actualizarTarea(id: string, formData: FormData) {
 
   const materia_id = String(formData.get("materia_id") || "");
   const titulo = String(formData.get("titulo") || "").trim();
-  const descripcion = String(formData.get("descripcion") || "").trim();
+  const descripcion = sanitizeRichText(String(formData.get("descripcion") || ""));
   const fecha_entrega = String(formData.get("fecha_entrega") || "");
   const archivos = formData.getAll("archivos").filter((f): f is File => f instanceof File && f.size > 0);
 

@@ -79,3 +79,39 @@ body {
 .text-muted {
   color: var(--muted);
 }
+
+.rich-editor-content ul,
+.rich-content ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.rich-editor-content ol,
+.rich-content ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+
+.rich-editor-content a,
+.rich-content a {
+  color: var(--color-jom-pink);
+  text-decoration: underline;
+}
+
+.rich-editor-content p,
+.rich-content p {
+  margin-bottom: 0.5rem;
+}
+
+.rich-editor-content p:last-child,
+.rich-content p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-editor-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

@@ -139,7 +139,10 @@ export default async function TareasPage() {
                   )}
                 </div>
                 {tarea.descripcion && (
-                  <p className="whitespace-pre-line text-sm text-fg/80">{tarea.descripcion}</p>
+                  <div
+                    className="rich-content whitespace-pre-line text-sm text-fg/80"
+                    dangerouslySetInnerHTML={{ __html: tarea.descripcion }}
+                  />
                 )}
                 {fecha && (
                   <div className="text-muted flex items-center gap-1.5 text-xs">
