@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, GraduationCap, Users, FileQuestion, FolderOpen } from "lucide-react";
+import { ClipboardList, GraduationCap, Users, FileQuestion, FolderOpen, BookOpen } from "lucide-react";
 import type { Role } from "@/types/database";
 
 const ALL_ITEMS = [
+  { href: "/portal/temario", label: "Temario", icon: BookOpen, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/tareas", label: "Tareas", icon: ClipboardList, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/examenes", label: "Exámenes", icon: FileQuestion, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/calificaciones", label: "Calificaciones", icon: GraduationCap, roles: ["alumno", "docente", "directora"] },

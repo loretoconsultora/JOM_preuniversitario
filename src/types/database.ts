@@ -108,3 +108,60 @@ export type RecursoVista = {
   alumno_id: string;
   created_at: string;
 };
+
+export type Tema = {
+  id: string;
+  materia_id: string;
+  titulo: string;
+  descripcion: string | null;
+  orden: number;
+  creado_por: string;
+  created_at: string;
+};
+
+export type TemaArchivo = {
+  id: string;
+  tema_id: string;
+  storage_path: string;
+  nombre_archivo: string;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type Subtema = {
+  id: string;
+  tema_id: string;
+  titulo: string;
+  detalle: string | null;
+  orden: number;
+  creado_por: string;
+  created_at: string;
+};
+
+export type SubtemaEjercicio = {
+  id: string;
+  subtema_id: string;
+  titulo: string;
+  url: string;
+  orden: number;
+};
+
+export type SubtemaVideo = {
+  id: string;
+  subtema_id: string;
+  titulo: string | null;
+  youtube_url: string;
+  orden: number;
+};
+
+export type EjercicioBorrador = { titulo: string; url: string };
+export type VideoBorrador = { titulo: string; youtube_url: string };
+
+export type SubtemaBorrador = {
+  titulo: string;
+  detalle: string;
+  ejercicios: EjercicioBorrador[];
+  videos: VideoBorrador[];
+};

@@ -46,9 +46,20 @@ según su rol:
    5. `0005_recursos.sql` — tabla `recursos` (archivo o link, materia
       opcional), tabla `recurso_vistas` (registro de qué alumno ya vio cada
       recurso) y bucket de Storage `recursos-adjuntos`.
+   6. `0006_temario.sql` — tablas `temas`, `tema_archivos`, `subtemas`,
+      `subtema_ejercicios` y `subtema_videos`, y bucket de Storage
+      `temario-adjuntos` para los archivos/presentaciones de cada tema.
+   7. `0007_temario_contenido.sql` — siembra el temario real del curso
+      (17 temas de Matemáticas, 9 de Física y 5 de Química — la sección de
+      Química viene incompleta en el documento fuente, así que solo se
+      cargan esos 5; falta por agregar cuando tengas el resto). Requiere que
+      ya exista al menos un perfil con `role = 'docente'` (paso 2), porque
+      cada tema/subtema queda asignado a esa cuenta como creador.
 
    Si el proyecto es nuevo y aún no habías corrido ninguna migración, igual
-   corre las cinco en ese orden (cada una depende de la anterior).
+   corre las siete en ese orden (cada una depende de la anterior). Si ya
+   corriste hasta la `0005`, solo te falta correr la `0006` y luego la
+   `0007`.
 
 ## 2. Crear tu cuenta (docente) y la de las directoras
 
@@ -105,16 +116,19 @@ src/
       examenes/                 Exámenes de opción múltiple con autocalificación (manual, IA, CSV)
       calificaciones/           Notas de tareas y evaluaciones, editables (alumno ve lo propio, staff ve todo)
       recursos/                  Archivos o links generales, con estatus de "visto" por alumno
+      temario/                  Temas y subtemas por materia, con adjuntos, ejercicios y videos
       alumnos/                  Roster y detalle por alumno (staff), alta de alumnos (docente)
   components/
     examen-builder.tsx          Formulario de creación de examen (manual + IA + subir CSV)
     tomar-examen-form.tsx       Formulario del alumno para responder un examen
     recurso-form.tsx            Formulario de nuevo recurso (archivo o link)
+    tema-builder.tsx             Formulario de creación/edición de un tema (subtemas, ejercicios, videos)
   lib/
     supabase/                  Clientes de Supabase (browser, server, middleware, admin)
     storage.ts                 Helpers de Supabase Storage (buckets de adjuntos)
     anthropic.ts               Cliente de la API de Anthropic (generación de preguntas)
     csv.ts                      Parser de CSV sin dependencias (plantilla de examen)
+    youtube.ts                  Convierte links de YouTube a URL embebible
     auth.ts                    Helpers de sesión/rol para Server Components
 supabase/
   migrations/
@@ -123,6 +137,8 @@ supabase/
     0003_tarea_archivos.sql     Adjuntos de tareas (tabla + bucket de Storage)
     0004_examenes.sql           Exámenes, preguntas y intentos (autocalificados en el servidor)
     0005_recursos.sql           Recursos (archivo/link) y seguimiento de "visto" por alumno
+    0006_temario.sql            Temas, subtemas, ejercicios y videos (tablas + bucket de Storage)
+    0007_temario_contenido.sql  Siembra el temario real (Matemáticas, Física y Química parcial)
 ```
 
 ## Exámenes: cómo funciona la autocalificación
@@ -152,6 +168,22 @@ archivo real (URL firmada de Storage) o al link externo. Así el registro de
 clic al botón para abrirlo. Docente y directora ven, por cada recurso,
 cuántos alumnos lo han visto y el detalle de quién y cuándo.
 
+## Temario: cómo funciona
+
+Cada materia tiene sus **temas** (equivalente a un módulo de Brightspace/Khan
+Academy), y cada tema tiene uno o varios **subtemas**. Al crear/editar un
+tema, el docente puede:
+
+- Adjuntar archivos o presentaciones al tema completo (se suben a Storage y
+  quedan disponibles para descarga con URL firmada).
+- Agregar botones directos a ejercicios externos por subtema (título + link).
+- Pegar links de YouTube por subtema, que quedan embebidos como video dentro
+  de la página (se validan y convierten a formato `embed` con
+  `src/lib/youtube.ts`).
+- Escribir un "detalle" opcional por subtema para el tercer nivel de
+  desglose del temario original (ej. "1.1.1 Suma y resta; 1.1.2
+  Multiplicación y división"), sin necesidad de otra tabla.
+
 ## Qué falta (próximas iteraciones)
 
 - Sección de **Avisos** (anuncios de texto simples, separados de Recursos).
@@ -161,3 +193,10 @@ cuántos alumnos lo han visto y el detalle de quién y cuándo.
   múltiple, por confiabilidad de la autocalificación).
 - Los resultados de exámenes viven en su propia sección; todavía no se
   fusionan con la vista de Calificaciones.
+- Temario de Química: solo están cargados los primeros 5 temas (Temas
+  básicos, Agua, Aire, Alimentos, La energía y las reacciones químicas)
+  porque el documento fuente marca esa sección como incompleta. Falta
+  agregar el resto cuando esté disponible.
+- El logo de JOM aún no está integrado (login/navbar): la imagen se pegó en
+  el chat pero no quedó accesible como archivo en este entorno — hace falta
+  que se envíe como adjunto de archivo para poder incorporarla.
