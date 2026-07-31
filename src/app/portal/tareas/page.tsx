@@ -139,7 +139,7 @@ export default async function TareasPage() {
                   )}
                 </div>
                 {tarea.descripcion && (
-                  <p className="text-sm text-fg/80">{tarea.descripcion}</p>
+                  <p className="whitespace-pre-line text-sm text-fg/80">{tarea.descripcion}</p>
                 )}
                 {fecha && (
                   <div className="text-muted flex items-center gap-1.5 text-xs">

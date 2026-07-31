@@ -179,7 +179,9 @@ async function renderTemario(materiaSeleccionadaParam: string | undefined, isDoc
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                   <div>
                     <h2 className="font-semibold">{tema.titulo}</h2>
-                    {tema.descripcion && <p className="text-muted mt-1 text-sm">{tema.descripcion}</p>}
+                    {tema.descripcion && (
+                      <p className="text-muted mt-1 whitespace-pre-line text-sm">{tema.descripcion}</p>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     {isDocente && (
