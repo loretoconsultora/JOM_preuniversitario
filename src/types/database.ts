@@ -87,3 +87,24 @@ export type PreguntaBorrador = {
   opciones: string[];
   respuesta_correcta: number;
 };
+
+export type Recurso = {
+  id: string;
+  titulo: string;
+  tipo: "archivo" | "enlace";
+  materia_id: string | null;
+  storage_path: string | null;
+  nombre_archivo: string | null;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  url: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type RecursoVista = {
+  id: string;
+  recurso_id: string;
+  alumno_id: string;
+  created_at: string;
+};

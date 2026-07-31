@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Trash2, CalendarDays, GraduationCap, Paperclip, Download } from "lucide-react";
+import { Plus, Trash2, Pencil, CalendarDays, GraduationCap, Paperclip, Download } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Calificacion, Materia, Tarea, TareaArchivo } from "@/types/database";
@@ -118,15 +118,24 @@ export default async function TareasPage() {
                     <h2 className="mt-2 font-semibold">{tarea.titulo}</h2>
                   </div>
                   {isDocente && (
-                    <form action={eliminarTarea.bind(null, tarea.id)}>
-                      <button
-                        type="submit"
-                        aria-label="Eliminar tarea"
-                        className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Link
+                        href={`/portal/tareas/${tarea.id}/editar`}
+                        aria-label="Editar tarea"
+                        className="text-muted rounded-full p-1.5 transition-colors hover:bg-black/5 hover:text-fg dark:hover:bg-white/10"
                       >
-                        <Trash2 size={15} />
-                      </button>
-                    </form>
+                        <Pencil size={15} />
+                      </Link>
+                      <form action={eliminarTarea.bind(null, tarea.id)}>
+                        <button
+                          type="submit"
+                          aria-label="Eliminar tarea"
+                          className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </form>
+                    </div>
                   )}
                 </div>
                 {tarea.descripcion && (

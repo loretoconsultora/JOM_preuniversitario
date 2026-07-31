@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Trash2, ClipboardCheck, GraduationCap } from "lucide-react";
+import { Plus, Trash2, Pencil, ClipboardCheck, GraduationCap } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Calificacion, Materia, Profile } from "@/types/database";
@@ -99,15 +99,24 @@ export default async function CalificacionesPage() {
                     <td className="text-muted px-5 py-3">{formatFecha(cal.fecha)}</td>
                     {isDocente && (
                       <td className="px-5 py-3 text-right">
-                        <form action={eliminarCalificacion.bind(null, cal.id)}>
-                          <button
-                            type="submit"
-                            aria-label="Eliminar calificación"
-                            className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/portal/calificaciones/${cal.id}/editar`}
+                            aria-label="Editar calificación"
+                            className="text-muted rounded-full p-1.5 transition-colors hover:bg-black/5 hover:text-fg dark:hover:bg-white/10"
                           >
-                            <Trash2 size={15} />
-                          </button>
-                        </form>
+                            <Pencil size={15} />
+                          </Link>
+                          <form action={eliminarCalificacion.bind(null, cal.id)}>
+                            <button
+                              type="submit"
+                              aria-label="Eliminar calificación"
+                              className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </form>
+                        </div>
                       </td>
                     )}
                   </tr>

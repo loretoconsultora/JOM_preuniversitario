@@ -43,9 +43,12 @@ según su rol:
       legible por staff, guarda la respuesta correcta) y `examen_intentos`
       (el alumno solo puede leer los suyos; la calificación siempre se
       calcula en el servidor).
+   5. `0005_recursos.sql` — tabla `recursos` (archivo o link, materia
+      opcional), tabla `recurso_vistas` (registro de qué alumno ya vio cada
+      recurso) y bucket de Storage `recursos-adjuntos`.
 
    Si el proyecto es nuevo y aún no habías corrido ninguna migración, igual
-   corre las cuatro en ese orden (cada una depende de la anterior).
+   corre las cinco en ese orden (cada una depende de la anterior).
 
 ## 2. Crear tu cuenta (docente) y la de las directoras
 
@@ -98,16 +101,18 @@ src/
   app/
     login/                    Inicio de sesión
     portal/
-      tareas/                  Lista + creación de tareas, con adjuntos (todos ven, solo docente crea)
+      tareas/                  Lista + creación/edición de tareas, con adjuntos (todos ven, solo docente edita)
       examenes/                 Exámenes de opción múltiple con autocalificación (manual, IA, CSV)
-      calificaciones/           Notas de tareas y evaluaciones (alumno ve lo propio, staff ve todo)
+      calificaciones/           Notas de tareas y evaluaciones, editables (alumno ve lo propio, staff ve todo)
+      recursos/                  Archivos o links generales, con estatus de "visto" por alumno
       alumnos/                  Roster y detalle por alumno (staff), alta de alumnos (docente)
   components/
     examen-builder.tsx          Formulario de creación de examen (manual + IA + subir CSV)
     tomar-examen-form.tsx       Formulario del alumno para responder un examen
+    recurso-form.tsx            Formulario de nuevo recurso (archivo o link)
   lib/
     supabase/                  Clientes de Supabase (browser, server, middleware, admin)
-    storage.ts                 Helpers de Supabase Storage (bucket de adjuntos)
+    storage.ts                 Helpers de Supabase Storage (buckets de adjuntos)
     anthropic.ts               Cliente de la API de Anthropic (generación de preguntas)
     csv.ts                      Parser de CSV sin dependencias (plantilla de examen)
     auth.ts                    Helpers de sesión/rol para Server Components
@@ -117,6 +122,7 @@ supabase/
     0002_calificaciones.sql     Renombra evaluaciones→calificaciones, vínculo a tareas
     0003_tarea_archivos.sql     Adjuntos de tareas (tabla + bucket de Storage)
     0004_examenes.sql           Exámenes, preguntas y intentos (autocalificados en el servidor)
+    0005_recursos.sql           Recursos (archivo/link) y seguimiento de "visto" por alumno
 ```
 
 ## Exámenes: cómo funciona la autocalificación
@@ -136,15 +142,22 @@ botón "Plantilla CSV" en **Exámenes → Nuevo examen**, con columnas
 `enunciado,opcion_a,opcion_b,opcion_c,opcion_d,respuesta_correcta` (la
 respuesta correcta se indica con la letra A, B, C o D).
 
+## Recursos: cómo funciona el "visto"
+
+Cada recurso (archivo o link) se abre a través de la ruta
+`/portal/recursos/[id]/abrir`, que primero registra en `recurso_vistas` que
+ese alumno lo abrió (si aún no estaba registrado) y luego redirige al
+archivo real (URL firmada de Storage) o al link externo. Así el registro de
+"visto" no depende de que el alumno haga nada extra — basta con que le dé
+clic al botón para abrirlo. Docente y directora ven, por cada recurso,
+cuántos alumnos lo han visto y el detalle de quién y cuándo.
+
 ## Qué falta (próximas iteraciones)
 
-- Sección de **Avisos** y **Recursos** generales (videos, PDFs, presentaciones
-  fuera del contexto de una tarea puntual).
-- Edición de tareas/calificaciones ya creadas (hoy: crear y eliminar).
+- Sección de **Avisos** (anuncios de texto simples, separados de Recursos).
 - Registro de "entrega" de tarea por alumno (hoy las tareas son informativas
   para todo el grupo, sin marcar completado individual).
 - Preguntas de examen con respuesta abierta o numérica (hoy: solo opción
   múltiple, por confiabilidad de la autocalificación).
-- Reintentos de examen (hoy: un solo intento por alumno).
 - Los resultados de exámenes viven en su propia sección; todavía no se
   fusionan con la vista de Calificaciones.

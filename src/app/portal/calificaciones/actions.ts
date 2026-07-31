@@ -57,6 +57,35 @@ export async function crearCalificacion(formData: FormData) {
   redirect("/portal/calificaciones");
 }
 
+export async function actualizarCalificacion(id: string, formData: FormData) {
+  await requireDocente();
+
+  const titulo = String(formData.get("titulo") || "").trim();
+  const calificacionRaw = String(formData.get("calificacion") || "").trim();
+  const comentario = String(formData.get("comentario") || "").trim();
+  const fecha = String(formData.get("fecha") || "");
+
+  if (!titulo) throw new Error("El título es obligatorio.");
+  if (!fecha) throw new Error("La fecha es obligatoria.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("calificaciones")
+    .update({
+      titulo,
+      calificacion: calificacionRaw ? Number(calificacionRaw) : null,
+      comentario: comentario || null,
+      fecha,
+    })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/portal/calificaciones");
+  revalidatePath("/portal/tareas");
+  redirect("/portal/calificaciones");
+}
+
 export async function eliminarCalificacion(id: string) {
   await requireDocente();
   const supabase = await createClient();

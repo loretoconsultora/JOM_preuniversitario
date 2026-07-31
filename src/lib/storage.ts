@@ -1,4 +1,5 @@
 export const TAREAS_BUCKET = "tareas-adjuntos";
+export const RECURSOS_BUCKET = "recursos-adjuntos";
 
 export function formatBytes(bytes: number | null) {
   if (!bytes) return "";
