@@ -11,6 +11,7 @@ export type Profile = {
 export type Materia = {
   id: string;
   nombre: string;
+  banner_url: string | null;
 };
 
 export type Tarea = {

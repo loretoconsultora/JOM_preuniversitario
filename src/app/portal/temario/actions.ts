@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { TEMARIO_BUCKET } from "@/lib/storage";
+import { TEMARIO_BUCKET, MATERIA_BANNERS_BUCKET } from "@/lib/storage";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import type { SubtemaBorrador } from "@/types/database";
 
@@ -213,5 +213,34 @@ export async function eliminarTema(id: string) {
 
   const { error } = await supabase.from("temas").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  revalidatePath("/portal/temario");
+}
+
+export async function subirBannerMateria(materiaId: string, formData: FormData) {
+  await requireDocente();
+  const archivo = formData.get("banner");
+  if (!(archivo instanceof File) || archivo.size === 0) throw new Error("Selecciona una imagen.");
+  if (!archivo.type.startsWith("image/")) throw new Error("El archivo debe ser una imagen.");
+  if (archivo.size > 5 * 1024 * 1024) throw new Error("La imagen no puede pesar más de 5 MB.");
+
+  const extension = archivo.name.split(".").pop()?.toLowerCase() || "jpg";
+  const storagePath = `${materiaId}/banner.${extension}`;
+
+  const supabase = await createClient();
+  const { error: uploadError } = await supabase.storage
+    .from(MATERIA_BANNERS_BUCKET)
+    .upload(storagePath, archivo, { contentType: archivo.type, upsert: true });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(MATERIA_BANNERS_BUCKET).getPublicUrl(storagePath);
+
+  const { error } = await supabase
+    .from("materias")
+    .update({ banner_url: `${publicUrl}?t=${Date.now()}` })
+    .eq("id", materiaId);
+  if (error) throw new Error(error.message);
+
   revalidatePath("/portal/temario");
 }

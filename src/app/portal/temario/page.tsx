@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Trash2, Paperclip, Download, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Paperclip, Download, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TEMARIO_BUCKET, formatBytes } from "@/lib/storage";
@@ -15,6 +15,7 @@ import type {
   TemaArchivo,
 } from "@/types/database";
 import { TemaEditLink } from "@/components/tema-edit-link";
+import { MateriaBannerUpload } from "@/components/materia-banner-upload";
 import { eliminarTema } from "./actions";
 
 export default async function TemarioPage({
@@ -30,7 +31,11 @@ export default async function TemarioPage({
   const { data: materias, error: eMaterias } = await supabase.from("materias").select("*").order("nombre");
   if (eMaterias) throw new Error(`materias: ${eMaterias.message}`);
   const materiasList = (materias ?? []) as Materia[];
-  const materiaSeleccionada = materiaSeleccionadaParam || materiasList[0]?.id || "";
+
+  if (!materiaSeleccionadaParam) {
+    return renderPortada(supabase, materiasList, isDocente);
+  }
+  const materiaSeleccionada = materiaSeleccionadaParam;
 
   const { data: temas, error: eTemas } = await supabase
     .from("temas")
@@ -145,12 +150,18 @@ export default async function TemarioPage({
     videosPorSubtema.set(v.subtema_id, list);
   }
 
+  const materiaActual = materiasList.find((m) => m.id === materiaSeleccionada);
+
   return (
     <div className="flex flex-col gap-6">
+      <Link href="/portal/temario" className="text-muted inline-flex w-fit items-center gap-1.5 text-sm hover:text-fg">
+        <ArrowLeft size={14} /> Mis materias
+      </Link>
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Temario</h1>
-          <p className="text-muted text-sm">Temas y subtemas por materia, con material y ejercicios</p>
+          <h1 className="text-2xl font-semibold">{materiaActual?.nombre ?? "Temario"}</h1>
+          <p className="text-muted text-sm">Temas y subtemas de esta materia, con material y ejercicios</p>
         </div>
         {isDocente && (
           <Link
@@ -325,6 +336,96 @@ export default async function TemarioPage({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+async function renderPortada(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  materiasList: Materia[],
+  isDocente: boolean
+) {
+  const materiaIds = materiasList.map((m) => m.id);
+
+  const { data: allTemas, error: eAllTemas } =
+    materiaIds.length > 0
+      ? await supabase.from("temas").select("id, materia_id").in("materia_id", materiaIds)
+      : { data: [] as { id: string; materia_id: string }[], error: null };
+  if (eAllTemas) throw new Error(`temas: ${eAllTemas.message}`);
+  const allTemasList = allTemas ?? [];
+  const allTemaIds = allTemasList.map((t) => t.id);
+
+  const [{ data: allArchivos, error: eAllArchivos }, { data: allSubtemas, error: eAllSubtemas }] =
+    allTemaIds.length > 0
+      ? await Promise.all([
+          supabase.from("tema_archivos").select("tema_id").in("tema_id", allTemaIds),
+          supabase.from("subtemas").select("tema_id").in("tema_id", allTemaIds),
+        ])
+      : [
+          { data: [] as { tema_id: string }[], error: null },
+          { data: [] as { tema_id: string }[], error: null },
+        ];
+  if (eAllArchivos) throw new Error(`tema_archivos: ${eAllArchivos.message}`);
+  if (eAllSubtemas) throw new Error(`subtemas: ${eAllSubtemas.message}`);
+
+  const temasConContenido = new Set<string>();
+  for (const a of allArchivos ?? []) temasConContenido.add(a.tema_id);
+  for (const s of allSubtemas ?? []) temasConContenido.add(s.tema_id);
+
+  const progresoPorMateria = new Map<string, { total: number; completos: number; pct: number }>();
+  for (const m of materiasList) {
+    const temasMateria = allTemasList.filter((t) => t.materia_id === m.id);
+    const completos = temasMateria.filter((t) => temasConContenido.has(t.id)).length;
+    const total = temasMateria.length;
+    const pct = total > 0 ? Math.round((completos / total) * 100) : 0;
+    progresoPorMateria.set(m.id, { total, completos, pct });
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold">
+          Mis <span className="text-jom-pink">materias</span>
+        </h1>
+        <p className="text-muted text-sm">Elige una materia para ver su temario, ejercicios y evaluaciones</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {materiasList.map((m) => {
+          const progreso = progresoPorMateria.get(m.id) ?? { total: 0, completos: 0, pct: 0 };
+          return (
+            <div key={m.id} className="relative">
+              {isDocente && <MateriaBannerUpload materiaId={m.id} />}
+              <Link
+                href={`/portal/temario?materia=${m.id}`}
+                className="glass relative flex h-48 flex-col justify-end overflow-hidden rounded-2xl p-5 transition-opacity hover:opacity-90"
+              >
+                {m.banner_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- banner subido por el docente, no un asset estático
+                  <img src={m.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                ) : (
+                  <div className="from-jom-yellow/60 via-jom-pink/50 to-jom-ink/20 absolute inset-0 bg-gradient-to-br" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                <div className="relative flex flex-col gap-2">
+                  <h2 className="text-lg font-semibold text-white drop-shadow">{m.nombre}</h2>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/30">
+                      <div className="bg-jom-yellow h-full rounded-full" style={{ width: `${progreso.pct}%` }} />
+                    </div>
+                    <span className="text-xs font-medium text-white">{progreso.pct}%</span>
+                  </div>
+                  <p className="text-xs text-white/80">
+                    {progreso.total === 0
+                      ? "Sin temas cargados todavía"
+                      : `${progreso.completos} de ${progreso.total} temas con material`}
+                  </p>
+                </div>
+              </Link>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
