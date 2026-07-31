@@ -1,0 +1,253 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireDocente, requireProfile } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createAnthropicClient } from "@/lib/anthropic";
+import { parseCSV } from "@/lib/csv";
+import type { ExamenPreguntaAlumno, PreguntaBorrador } from "@/types/database";
+
+function validarPreguntas(preguntas: PreguntaBorrador[]) {
+  if (preguntas.length === 0) {
+    throw new Error("Agrega al menos una pregunta.");
+  }
+  for (const [i, p] of preguntas.entries()) {
+    if (!p.enunciado.trim()) throw new Error(`La pregunta ${i + 1} no tiene enunciado.`);
+    const opciones = p.opciones.map((o) => o.trim()).filter(Boolean);
+    if (opciones.length < 2) throw new Error(`La pregunta ${i + 1} necesita al menos 2 opciones.`);
+    if (p.respuesta_correcta < 0 || p.respuesta_correcta >= p.opciones.length) {
+      throw new Error(`La pregunta ${i + 1} no tiene marcada una respuesta correcta válida.`);
+    }
+  }
+}
+
+export async function crearExamen(input: {
+  titulo: string;
+  materia_id: string;
+  origen: "manual" | "ia" | "plantilla";
+  preguntas: PreguntaBorrador[];
+}) {
+  const profile = await requireDocente();
+
+  const titulo = input.titulo.trim();
+  if (!titulo) throw new Error("El título es obligatorio.");
+  if (!input.materia_id) throw new Error("Selecciona una materia.");
+  validarPreguntas(input.preguntas);
+
+  const supabase = await createClient();
+  const { data: examen, error } = await supabase
+    .from("examenes")
+    .insert({
+      titulo,
+      materia_id: input.materia_id,
+      origen: input.origen,
+      creado_por: profile.id,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  const { error: preguntasError } = await supabase.from("examen_preguntas").insert(
+    input.preguntas.map((p, i) => ({
+      examen_id: examen.id,
+      orden: i,
+      enunciado: p.enunciado.trim(),
+      opciones: p.opciones.map((o) => o.trim()),
+      respuesta_correcta: p.respuesta_correcta,
+    }))
+  );
+
+  if (preguntasError) throw new Error(preguntasError.message);
+
+  revalidatePath("/portal/examenes");
+  return { id: examen.id as string };
+}
+
+export async function eliminarExamen(id: string) {
+  await requireDocente();
+  const supabase = await createClient();
+  const { error } = await supabase.from("examenes").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/portal/examenes");
+}
+
+export async function generarPreguntasConIA(input: {
+  materiaNombre: string;
+  tema: string;
+  cantidad: number;
+}): Promise<PreguntaBorrador[]> {
+  await requireDocente();
+
+  const tema = input.tema.trim();
+  if (!tema) throw new Error("Describe el tema del examen.");
+  const cantidad = Math.min(Math.max(Math.round(input.cantidad) || 5, 1), 20);
+
+  const client = createAnthropicClient();
+  const response = await client.messages.create({
+    model: "claude-opus-5",
+    max_tokens: 4096,
+    messages: [
+      {
+        role: "user",
+        content: `Genera ${cantidad} preguntas de opción múltiple de nivel preparación preuniversitaria (bachillerato) sobre "${tema}", en la materia de ${input.materiaNombre}. Cada pregunta debe tener exactamente 4 opciones, solo una correcta, en español, claras y sin ambigüedad. Varía la dificultad. No repitas preguntas.`,
+      },
+    ],
+    output_config: {
+      format: {
+        type: "json_schema",
+        schema: {
+          type: "object",
+          properties: {
+            preguntas: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  enunciado: { type: "string" },
+                  opciones: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                  respuesta_correcta: {
+                    type: "integer",
+                    description: "Índice (0-3) de la opción correcta dentro de 'opciones'.",
+                  },
+                },
+                required: ["enunciado", "opciones", "respuesta_correcta"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["preguntas"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("La IA no devolvió una respuesta válida.");
+  }
+
+  const parsed = JSON.parse(textBlock.text) as { preguntas: PreguntaBorrador[] };
+  return parsed.preguntas
+    .filter((p) => Array.isArray(p.opciones) && p.opciones.length >= 2)
+    .map((p) => ({
+      enunciado: p.enunciado,
+      opciones: p.opciones,
+      respuesta_correcta:
+        p.respuesta_correcta >= 0 && p.respuesta_correcta < p.opciones.length
+          ? p.respuesta_correcta
+          : 0,
+    }));
+}
+
+export async function parsearCSVExamen(formData: FormData): Promise<PreguntaBorrador[]> {
+  await requireDocente();
+
+  const file = formData.get("archivo");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("Selecciona un archivo CSV.");
+  }
+
+  const text = await file.text();
+  const rows = parseCSV(text);
+  if (rows.length < 2) {
+    throw new Error("El CSV está vacío o solo tiene encabezado.");
+  }
+
+  const [, ...dataRows] = rows; // se ignora la fila de encabezado
+  const letraAIndice: Record<string, number> = { a: 0, b: 1, c: 2, d: 3 };
+
+  return dataRows.map((row, i) => {
+    const [enunciado, opcionA, opcionB, opcionC, opcionD, respuesta] = row.map((c) => c.trim());
+    if (!enunciado || !opcionA || !opcionB || !opcionC || !opcionD) {
+      throw new Error(`Fila ${i + 2} del CSV: faltan columnas (enunciado u opciones).`);
+    }
+    const indice = letraAIndice[(respuesta || "").toLowerCase()];
+    if (indice === undefined) {
+      throw new Error(`Fila ${i + 2} del CSV: "respuesta_correcta" debe ser A, B, C o D.`);
+    }
+    return {
+      enunciado,
+      opciones: [opcionA, opcionB, opcionC, opcionD],
+      respuesta_correcta: indice,
+    };
+  });
+}
+
+export async function obtenerPreguntasParaTomar(examenId: string) {
+  const profile = await requireProfile();
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const { data: intentoExistente } = await supabase
+    .from("examen_intentos")
+    .select("*")
+    .eq("examen_id", examenId)
+    .eq("alumno_id", profile.id)
+    .maybeSingle();
+
+  if (intentoExistente) {
+    return { yaPresentado: true as const, intento: intentoExistente };
+  }
+
+  const { data: preguntas, error } = await admin
+    .from("examen_preguntas")
+    .select("id, enunciado, opciones")
+    .eq("examen_id", examenId)
+    .order("orden");
+
+  if (error) throw new Error(error.message);
+
+  return {
+    yaPresentado: false as const,
+    preguntas: (preguntas ?? []) as ExamenPreguntaAlumno[],
+  };
+}
+
+export async function entregarExamen(examenId: string, respuestas: Record<string, number>) {
+  const profile = await requireProfile();
+  if (profile.role !== "alumno") {
+    throw new Error("Solo los alumnos pueden presentar exámenes.");
+  }
+
+  const admin = createAdminClient();
+  const { data: preguntas, error } = await admin
+    .from("examen_preguntas")
+    .select("id, respuesta_correcta")
+    .eq("examen_id", examenId);
+
+  if (error) throw new Error(error.message);
+  if (!preguntas || preguntas.length === 0) throw new Error("Este examen no tiene preguntas.");
+
+  let aciertos = 0;
+  for (const pregunta of preguntas) {
+    if (respuestas[pregunta.id] === pregunta.respuesta_correcta) aciertos += 1;
+  }
+  const total = preguntas.length;
+  const calificacion = Math.round((aciertos / total) * 1000) / 10;
+
+  const { error: insertError } = await admin.from("examen_intentos").insert({
+    examen_id: examenId,
+    alumno_id: profile.id,
+    respuestas,
+    aciertos,
+    total,
+    calificacion,
+  });
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      throw new Error("Ya presentaste este examen.");
+    }
+    throw new Error(insertError.message);
+  }
+
+  revalidatePath("/portal/examenes");
+  revalidatePath(`/portal/examenes/${examenId}`);
+  return { aciertos, total, calificacion };
+}

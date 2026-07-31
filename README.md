@@ -6,16 +6,20 @@ entra con su propio usuario y contraseña y ve solo lo que le corresponde
 según su rol:
 
 - **Docente** (tú, super administradora): crea tareas (con archivos
-  adjuntos) y calificaciones, y crea las cuentas de los alumnos.
-- **Directora**: acceso de solo lectura al rendimiento, tareas y
+  adjuntos), calificaciones y exámenes interactivos, y crea las cuentas de
+  los alumnos.
+- **Directora**: acceso de solo lectura al rendimiento, tareas, exámenes y
   calificaciones de todos los alumnos.
-- **Alumno**: ve sus propias tareas (con sus adjuntos) y calificaciones.
+- **Alumno**: ve sus propias tareas (con sus adjuntos), toma sus exámenes
+  (con calificación automática) y ve sus calificaciones.
 
 ## Stack
 
 - [Next.js 16](https://nextjs.org/) (App Router) + TypeScript + Tailwind CSS v4
 - [Supabase](https://supabase.com/) para autenticación, base de datos (Postgres),
   permisos por fila (Row Level Security) y Storage (adjuntos de tareas)
+- [Anthropic API](https://console.anthropic.com/) (Claude) para generar
+  preguntas de examen a partir de un tema
 - Desplegado en [Vercel](https://vercel.com/) (proyecto `jom-preuniversitario`,
   ya conectado a este repositorio)
 
@@ -35,9 +39,13 @@ según su rol:
       y permite vincular una calificación a una tarea existente.
    3. `0003_tarea_archivos.sql` — tabla `tarea_archivos` y bucket de Storage
       `tareas-adjuntos` para los archivos/imágenes que subas en las tareas.
+   4. `0004_examenes.sql` — tablas `examenes`, `examen_preguntas` (solo
+      legible por staff, guarda la respuesta correcta) y `examen_intentos`
+      (el alumno solo puede leer los suyos; la calificación siempre se
+      calcula en el servidor).
 
    Si el proyecto es nuevo y aún no habías corrido ninguna migración, igual
-   corre las tres en ese orden (cada una depende de la anterior).
+   corre las cuatro en ese orden (cada una depende de la anterior).
 
 ## 2. Crear tu cuenta (docente) y la de las directoras
 
@@ -59,8 +67,13 @@ Copia `.env.example` a `.env.local` y llena los tres valores del paso 1:
 cp .env.example .env.local
 ```
 
+La cuarta variable, `ANTHROPIC_API_KEY`, es tu API key de
+[console.anthropic.com](https://console.anthropic.com/) — solo se usa para
+generar preguntas de examen con IA; si la dejas vacía, el resto del portal
+funciona igual (solo no podrás usar "Generar con IA" al crear un examen).
+
 En Vercel (el proyecto ya está conectado a este repo): **Project → Settings →
-Environment Variables**, agrega las mismas tres variables para Production y
+Environment Variables**, agrega las mismas variables para Production y
 Preview, y vuelve a desplegar.
 
 ## 4. Desarrollo local
@@ -86,18 +99,42 @@ src/
     login/                    Inicio de sesión
     portal/
       tareas/                  Lista + creación de tareas, con adjuntos (todos ven, solo docente crea)
+      examenes/                 Exámenes de opción múltiple con autocalificación (manual, IA, CSV)
       calificaciones/           Notas de tareas y evaluaciones (alumno ve lo propio, staff ve todo)
       alumnos/                  Roster y detalle por alumno (staff), alta de alumnos (docente)
+  components/
+    examen-builder.tsx          Formulario de creación de examen (manual + IA + subir CSV)
+    tomar-examen-form.tsx       Formulario del alumno para responder un examen
   lib/
     supabase/                  Clientes de Supabase (browser, server, middleware, admin)
     storage.ts                 Helpers de Supabase Storage (bucket de adjuntos)
+    anthropic.ts               Cliente de la API de Anthropic (generación de preguntas)
+    csv.ts                      Parser de CSV sin dependencias (plantilla de examen)
     auth.ts                    Helpers de sesión/rol para Server Components
 supabase/
   migrations/
     0001_init.sql               Esquema inicial, RLS y datos semilla
     0002_calificaciones.sql     Renombra evaluaciones→calificaciones, vínculo a tareas
     0003_tarea_archivos.sql     Adjuntos de tareas (tabla + bucket de Storage)
+    0004_examenes.sql           Exámenes, preguntas y intentos (autocalificados en el servidor)
 ```
+
+## Exámenes: cómo funciona la autocalificación
+
+Los alumnos **nunca** reciben la respuesta correcta en el navegador: la
+tabla `examen_preguntas` solo es legible por docente/directora (RLS), y el
+alumno recibe las preguntas a través de un server action que usa la
+`service_role` key para leerlas y les quita el campo `respuesta_correcta`
+antes de responder. Al entregar el examen, otro server action (también con
+`service_role`) recalcula la calificación comparando las respuestas contra
+la base de datos y la guarda — el alumno no puede enviar su propia
+calificación ni ver las respuestas correctas de antemano. Cada alumno solo
+puede presentar un examen una vez.
+
+Para subir preguntas en lote hay una plantilla CSV descargable desde el
+botón "Plantilla CSV" en **Exámenes → Nuevo examen**, con columnas
+`enunciado,opcion_a,opcion_b,opcion_c,opcion_d,respuesta_correcta` (la
+respuesta correcta se indica con la letra A, B, C o D).
 
 ## Qué falta (próximas iteraciones)
 
@@ -106,4 +143,8 @@ supabase/
 - Edición de tareas/calificaciones ya creadas (hoy: crear y eliminar).
 - Registro de "entrega" de tarea por alumno (hoy las tareas son informativas
   para todo el grupo, sin marcar completado individual).
-- Exámenes interactivos con autocalificación (en diseño).
+- Preguntas de examen con respuesta abierta o numérica (hoy: solo opción
+  múltiple, por confiabilidad de la autocalificación).
+- Reintentos de examen (hoy: un solo intento por alumno).
+- Los resultados de exámenes viven en su propia sección; todavía no se
+  fusionan con la vista de Calificaciones.

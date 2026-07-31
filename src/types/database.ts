@@ -45,3 +45,45 @@ export type TareaArchivo = {
   creado_por: string;
   created_at: string;
 };
+
+export type Examen = {
+  id: string;
+  materia_id: string;
+  titulo: string;
+  origen: "manual" | "ia" | "plantilla";
+  creado_por: string;
+  created_at: string;
+};
+
+export type ExamenPregunta = {
+  id: string;
+  examen_id: string;
+  orden: number;
+  enunciado: string;
+  opciones: string[];
+  respuesta_correcta: number;
+  created_at: string;
+};
+
+export type ExamenPreguntaAlumno = {
+  id: string;
+  enunciado: string;
+  opciones: string[];
+};
+
+export type ExamenIntento = {
+  id: string;
+  examen_id: string;
+  alumno_id: string;
+  respuestas: Record<string, number>;
+  aciertos: number;
+  total: number;
+  calificacion: number;
+  created_at: string;
+};
+
+export type PreguntaBorrador = {
+  enunciado: string;
+  opciones: string[];
+  respuesta_correcta: number;
+};

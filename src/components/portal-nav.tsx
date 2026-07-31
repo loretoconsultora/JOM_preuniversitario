@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, GraduationCap, Users } from "lucide-react";
+import { ClipboardList, GraduationCap, Users, FileQuestion } from "lucide-react";
 import type { Role } from "@/types/database";
 
 const ALL_ITEMS = [
   { href: "/portal/tareas", label: "Tareas", icon: ClipboardList, roles: ["alumno", "docente", "directora"] },
+  { href: "/portal/examenes", label: "Exámenes", icon: FileQuestion, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/calificaciones", label: "Calificaciones", icon: GraduationCap, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/alumnos", label: "Alumnos", icon: Users, roles: ["docente", "directora"] },
 ] as const;
