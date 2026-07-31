@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, Paperclip, Download, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { TEMARIO_BUCKET, formatBytes } from "@/lib/storage";
+import { TEMARIO_BUCKET } from "@/lib/storage";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import type {
   Examen,
@@ -16,6 +16,7 @@ import type {
 } from "@/types/database";
 import { TemaEditLink } from "@/components/tema-edit-link";
 import { MateriaBannerUpload } from "@/components/materia-banner-upload";
+import { ArchivoPreview } from "@/components/archivo-preview";
 import { eliminarTema } from "./actions";
 
 export default async function TemarioPage({
@@ -233,20 +234,13 @@ export default async function TemarioPage({
                   {temaArchivos.length > 0 && (
                     <div className="flex flex-col gap-1.5">
                       {temaArchivos.map((archivo) => (
-                        <a
+                        <ArchivoPreview
                           key={archivo.id}
-                          href={signedUrlByPath.get(archivo.storage_path) ?? "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-opacity hover:opacity-80"
-                        >
-                          <Paperclip size={13} className="text-muted shrink-0" />
-                          <span className="flex-1 truncate">{archivo.nombre_archivo}</span>
-                          {archivo.tamano_bytes && (
-                            <span className="text-muted shrink-0">{formatBytes(archivo.tamano_bytes)}</span>
-                          )}
-                          <Download size={13} className="text-muted shrink-0" />
-                        </a>
+                          nombre={archivo.nombre_archivo}
+                          url={signedUrlByPath.get(archivo.storage_path) ?? "#"}
+                          tipoMime={archivo.tipo_mime}
+                          tamanoBytes={archivo.tamano_bytes}
+                        />
                       ))}
                     </div>
                   )}
