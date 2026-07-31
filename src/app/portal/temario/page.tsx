@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { ArrowLeft, Plus, Trash2, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -17,18 +18,32 @@ import type {
 import { TemaEditLink } from "@/components/tema-edit-link";
 import { MateriaBannerUpload } from "@/components/materia-banner-upload";
 import { ArchivoPreview } from "@/components/archivo-preview";
+import { SubirMaterialModal } from "@/components/subir-material-modal";
 import { eliminarTema } from "./actions";
 
+// Los tonos se mezclan siempre con blanco (no con el fondo de la página) para
+// que las tarjetas de tema/subtema se vean claras aunque el modo oscuro esté activo.
 const TEMA_ACCENTS = [
   {
-    card: "border-jom-pink/40 bg-jom-pink/12 dark:bg-jom-pink/10",
-    subtema: "border-jom-pink/25 bg-jom-pink/5 dark:bg-jom-pink/8",
+    borderColor: "color-mix(in srgb, var(--color-jom-pink) 45%, white)",
+    background: "color-mix(in srgb, var(--color-jom-pink) 16%, white)",
+    subtemaBorder: "color-mix(in srgb, var(--color-jom-pink) 28%, white)",
+    subtemaBackground: "color-mix(in srgb, var(--color-jom-pink) 8%, white)",
   },
   {
-    card: "border-jom-yellow/50 bg-jom-yellow/20 dark:bg-jom-yellow/12",
-    subtema: "border-jom-yellow/35 bg-jom-yellow/10 dark:bg-jom-yellow/8",
+    borderColor: "color-mix(in srgb, var(--color-jom-yellow) 55%, white)",
+    background: "color-mix(in srgb, var(--color-jom-yellow) 24%, white)",
+    subtemaBorder: "color-mix(in srgb, var(--color-jom-yellow) 40%, white)",
+    subtemaBackground: "color-mix(in srgb, var(--color-jom-yellow) 13%, white)",
   },
-];
+] as const;
+
+// Fuerza texto e íconos "muted" a tonos oscuros dentro de la tarjeta, sin
+// importar el modo oscuro global, porque el fondo aquí siempre es claro.
+const forceLightCardVars = {
+  color: "var(--color-jom-ink)",
+  "--muted": "var(--color-jom-gray)",
+} as CSSProperties;
 
 export default async function TemarioPage({
   searchParams,
@@ -176,12 +191,15 @@ export default async function TemarioPage({
           <p className="text-muted text-sm">Temas y subtemas de esta materia, con material y ejercicios</p>
         </div>
         {isDocente && (
-          <Link
-            href="/portal/temario/nuevo"
-            className="inline-flex items-center gap-1.5 rounded-full bg-jom-ink px-4 py-2.5 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
-          >
-            <Plus size={15} /> Nuevo tema
-          </Link>
+          <div className="flex items-center gap-2">
+            <SubirMaterialModal materias={materiasList} materiaInicialId={materiaSeleccionada} />
+            <Link
+              href="/portal/temario/nuevo"
+              className="inline-flex items-center gap-1.5 rounded-full bg-jom-ink px-4 py-2.5 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
+            >
+              <Plus size={15} /> Nuevo tema
+            </Link>
+          </div>
         )}
       </div>
 
@@ -217,7 +235,12 @@ export default async function TemarioPage({
             return (
               <details
                 key={tema.id}
-                className={`group rounded-2xl border p-5 shadow-sm open:pb-5 ${accent.card}`}
+                className="group rounded-2xl border p-5 shadow-sm open:pb-5"
+                style={{
+                  borderColor: accent.borderColor,
+                  background: accent.background,
+                  ...forceLightCardVars,
+                }}
                 open
               >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
@@ -267,7 +290,7 @@ export default async function TemarioPage({
                         <Link
                           key={t.id}
                           href={`/portal/tareas#tarea-${t.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 dark:bg-white/10"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
                         >
                           <ClipboardList size={12} /> {t.titulo}
                         </Link>
@@ -276,7 +299,7 @@ export default async function TemarioPage({
                         <Link
                           key={ex.id}
                           href={`/portal/examenes/${ex.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 dark:bg-white/10"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
                         >
                           <FileQuestion size={12} /> {ex.titulo}
                         </Link>
@@ -292,7 +315,11 @@ export default async function TemarioPage({
                         const subEjercicios = ejerciciosPorSubtema.get(subtema.id) ?? [];
                         const subVideos = videosPorSubtema.get(subtema.id) ?? [];
                         return (
-                          <div key={subtema.id} className={`rounded-xl border p-3 ${accent.subtema}`}>
+                          <div
+                            key={subtema.id}
+                            className="rounded-xl border p-3"
+                            style={{ borderColor: accent.subtemaBorder, background: accent.subtemaBackground }}
+                          >
                             <p className="text-sm font-medium">{subtema.titulo}</p>
                             {subtema.detalle && (
                               <p className="text-muted mt-1 whitespace-pre-line text-xs">{subtema.detalle}</p>
@@ -306,7 +333,7 @@ export default async function TemarioPage({
                                     href={ej.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 rounded-full bg-jom-pink/30 px-3 py-1.5 text-xs font-medium text-jom-ink transition-opacity hover:opacity-80 dark:text-jom-white"
+                                    className="inline-flex items-center gap-1.5 rounded-full bg-jom-pink/30 px-3 py-1.5 text-xs font-medium text-jom-ink transition-opacity hover:opacity-80"
                                   >
                                     <LinkIcon size={12} /> {ej.titulo}
                                   </a>
@@ -393,11 +420,14 @@ async function renderPortada(
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">
-          Mis <span className="text-jom-pink">materias</span>
-        </h1>
-        <p className="text-muted text-sm">Elige una materia para ver su temario, ejercicios y evaluaciones</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">
+            Mis <span className="text-jom-pink">materias</span>
+          </h1>
+          <p className="text-muted text-sm">Elige una materia para ver su temario, ejercicios y evaluaciones</p>
+        </div>
+        {isDocente && <SubirMaterialModal materias={materiasList} />}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
