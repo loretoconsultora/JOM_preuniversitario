@@ -9,23 +9,27 @@ export function ArchivoPreview({
   url,
   tipoMime,
   tamanoBytes,
+  accent,
 }: {
   nombre: string;
   url: string;
   tipoMime: string | null;
   tamanoBytes: number | null;
+  accent?: { background: string; border: string };
 }) {
   const [open, setOpen] = useState(false);
   const esPdf = tipoMime === "application/pdf" || nombre.toLowerCase().endsWith(".pdf");
 
+  const chipClass = `flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-opacity hover:opacity-80 ${
+    accent ? "" : "glass"
+  }`;
+  const chipStyle = accent
+    ? { background: accent.background, borderColor: accent.border, color: "var(--color-jom-ink)" }
+    : undefined;
+
   if (!esPdf) {
     return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-opacity hover:opacity-80"
-      >
+      <a href={url} target="_blank" rel="noopener noreferrer" className={chipClass} style={chipStyle}>
         <Paperclip size={13} className="text-muted shrink-0" />
         <span className="flex-1 truncate">{nombre}</span>
         {tamanoBytes && <span className="text-muted shrink-0">{formatBytes(tamanoBytes)}</span>}
@@ -36,11 +40,7 @@ export function ArchivoPreview({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="glass flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition-opacity hover:opacity-80"
-      >
+      <button type="button" onClick={() => setOpen(true)} className={`w-full text-left ${chipClass}`} style={chipStyle}>
         <Paperclip size={13} className="text-muted shrink-0" />
         <span className="flex-1 truncate">{nombre}</span>
         {tamanoBytes && <span className="text-muted shrink-0">{formatBytes(tamanoBytes)}</span>}

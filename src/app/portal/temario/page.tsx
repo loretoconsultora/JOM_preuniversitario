@@ -29,12 +29,16 @@ const TEMA_ACCENTS = [
     background: "color-mix(in srgb, var(--color-jom-pink) 16%, white)",
     subtemaBorder: "color-mix(in srgb, var(--color-jom-pink) 28%, white)",
     subtemaBackground: "color-mix(in srgb, var(--color-jom-pink) 8%, white)",
+    archivoBorder: "color-mix(in srgb, var(--color-jom-pink) 65%, white)",
+    archivoBackground: "color-mix(in srgb, var(--color-jom-pink) 42%, white)",
   },
   {
     borderColor: "color-mix(in srgb, var(--color-jom-yellow) 55%, white)",
     background: "color-mix(in srgb, var(--color-jom-yellow) 24%, white)",
     subtemaBorder: "color-mix(in srgb, var(--color-jom-yellow) 40%, white)",
     subtemaBackground: "color-mix(in srgb, var(--color-jom-yellow) 13%, white)",
+    archivoBorder: "color-mix(in srgb, var(--color-jom-yellow) 75%, white)",
+    archivoBackground: "color-mix(in srgb, var(--color-jom-yellow) 50%, white)",
   },
 ] as const;
 
@@ -279,6 +283,7 @@ export default async function TemarioPage({
                           url={signedUrlByPath.get(archivo.storage_path) ?? "#"}
                           tipoMime={archivo.tipo_mime}
                           tamanoBytes={archivo.tamano_bytes}
+                          accent={{ background: accent.archivoBackground, border: accent.archivoBorder }}
                         />
                       ))}
                     </div>
