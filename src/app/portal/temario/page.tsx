@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Trash2, Pencil, Paperclip, Download, LinkIcon, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Paperclip, Download, LinkIcon, ChevronDown } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TEMARIO_BUCKET, formatBytes } from "@/lib/storage";
@@ -12,6 +12,7 @@ import type {
   Tema,
   TemaArchivo,
 } from "@/types/database";
+import { TemaEditLink } from "@/components/tema-edit-link";
 import { eliminarTema } from "./actions";
 
 export default async function TemarioPage({
@@ -19,30 +20,9 @@ export default async function TemarioPage({
 }: {
   searchParams: Promise<{ materia?: string }>;
 }) {
-  try {
-    const profile = await requireProfile();
-    const { materia: materiaSeleccionadaParam } = await searchParams;
-    const isDocente = profile.role === "docente";
-    return await renderTemario(materiaSeleccionadaParam, isDocente);
-  } catch (e) {
-    const digest = (e as { digest?: string } | null)?.digest;
-    if (typeof digest === "string" && digest.startsWith("NEXT_")) throw e;
-    let message: string;
-    try {
-      message = e instanceof Error ? e.message : JSON.stringify(e);
-    } catch {
-      message = "No se pudo leer el mensaje del error.";
-    }
-    return (
-      <div className="glass mx-auto flex max-w-2xl flex-col gap-2 rounded-2xl p-6 text-left text-sm">
-        <p className="font-semibold text-red-500">Error real v2 (debug temporal):</p>
-        <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs">{message}</pre>
-      </div>
-    );
-  }
-}
-
-async function renderTemario(materiaSeleccionadaParam: string | undefined, isDocente: boolean) {
+  const profile = await requireProfile();
+  const { materia: materiaSeleccionadaParam } = await searchParams;
+  const isDocente = profile.role === "docente";
   const supabase = await createClient();
 
   const { data: materias, error: eMaterias } = await supabase.from("materias").select("*").order("nombre");
@@ -189,14 +169,7 @@ async function renderTemario(materiaSeleccionadaParam: string | undefined, isDoc
                   <div className="flex shrink-0 items-center gap-1">
                     {isDocente && (
                       <>
-                        <Link
-                          href={`/portal/temario/${tema.id}/editar`}
-                          aria-label="Editar tema"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-muted rounded-full p-1.5 transition-colors hover:bg-black/5 hover:text-fg dark:hover:bg-white/10"
-                        >
-                          <Pencil size={15} />
-                        </Link>
+                        <TemaEditLink temaId={tema.id} />
                         <form action={eliminarTema.bind(null, tema.id)}>
                           <button
                             type="submit"
