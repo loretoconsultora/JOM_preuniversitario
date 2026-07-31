@@ -41,6 +41,7 @@ export async function crearTarea(formData: FormData) {
   const profile = await requireDocente();
 
   const materia_id = String(formData.get("materia_id") || "");
+  const tema_id = String(formData.get("tema_id") || "");
   const titulo = String(formData.get("titulo") || "").trim();
   const descripcion = sanitizeRichText(String(formData.get("descripcion") || ""));
   const fecha_entrega = String(formData.get("fecha_entrega") || "");
@@ -55,6 +56,7 @@ export async function crearTarea(formData: FormData) {
     .from("tareas")
     .insert({
       materia_id,
+      tema_id: tema_id || null,
       titulo,
       descripcion: descripcion || null,
       fecha_entrega: fecha_entrega || null,
@@ -75,6 +77,7 @@ export async function actualizarTarea(id: string, formData: FormData) {
   const profile = await requireDocente();
 
   const materia_id = String(formData.get("materia_id") || "");
+  const tema_id = String(formData.get("tema_id") || "");
   const titulo = String(formData.get("titulo") || "").trim();
   const descripcion = sanitizeRichText(String(formData.get("descripcion") || ""));
   const fecha_entrega = String(formData.get("fecha_entrega") || "");
@@ -89,6 +92,7 @@ export async function actualizarTarea(id: string, formData: FormData) {
     .from("tareas")
     .update({
       materia_id,
+      tema_id: tema_id || null,
       titulo,
       descripcion: descripcion || null,
       fecha_entrega: fecha_entrega || null,

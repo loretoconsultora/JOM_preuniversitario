@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, Paperclip, Trash2 } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Materia, Tarea, TareaArchivo } from "@/types/database";
+import type { Materia, Tarea, TareaArchivo, Tema } from "@/types/database";
 import { TAREAS_BUCKET, formatBytes } from "@/lib/storage";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { actualizarTarea, eliminarArchivoTarea } from "../../actions";
@@ -17,16 +17,18 @@ export default async function EditarTareaPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: tarea }, { data: materias }, { data: archivos }] = await Promise.all([
+  const [{ data: tarea }, { data: materias }, { data: archivos }, { data: temas }] = await Promise.all([
     supabase.from("tareas").select("*").eq("id", id).single(),
     supabase.from("materias").select("*").order("nombre"),
     supabase.from("tarea_archivos").select("*").eq("tarea_id", id),
+    supabase.from("temas").select("*").order("orden"),
   ]);
 
   if (!tarea) notFound();
   const tareaData = tarea as Tarea;
   const materiasList = (materias ?? []) as Materia[];
   const archivosList = (archivos ?? []) as TareaArchivo[];
+  const temasList = (temas ?? []) as Tema[];
 
   const signedUrlByPath = new Map<string, string>();
   if (archivosList.length > 0) {
@@ -70,6 +72,29 @@ export default async function EditarTareaPage({
             <label className="flex flex-col gap-1.5 text-sm">
               Título
               <input name="titulo" required defaultValue={tareaData.titulo} className={inputClass} />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm">
+              Tema del temario (opcional)
+              <select name="tema_id" defaultValue={tareaData.tema_id ?? ""} className={inputClass}>
+                <option value="">Sin vincular a un tema</option>
+                {materiasList.map((m) => {
+                  const temasMateria = temasList.filter((t) => t.materia_id === m.id);
+                  if (temasMateria.length === 0) return null;
+                  return (
+                    <optgroup key={m.id} label={m.nombre}>
+                      {temasMateria.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.titulo}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+              <span className="text-muted text-xs">
+                Si la vinculas, esta tarea aparece dentro de ese tema en el Temario.
+              </span>
             </label>
 
             <div className="flex flex-col gap-1.5 text-sm">

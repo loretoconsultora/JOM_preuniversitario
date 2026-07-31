@@ -16,6 +16,7 @@ export type Materia = {
 export type Tarea = {
   id: string;
   materia_id: string;
+  tema_id: string | null;
   titulo: string;
   descripcion: string | null;
   fecha_entrega: string | null;
@@ -50,6 +51,7 @@ export type TareaArchivo = {
 export type Examen = {
   id: string;
   materia_id: string;
+  tema_id: string | null;
   titulo: string;
   origen: "manual" | "ia" | "plantilla";
   creado_por: string;

@@ -25,6 +25,7 @@ function validarPreguntas(preguntas: PreguntaBorrador[]) {
 export async function crearExamen(input: {
   titulo: string;
   materia_id: string;
+  tema_id: string | null;
   origen: "manual" | "ia" | "plantilla";
   preguntas: PreguntaBorrador[];
 }) {
@@ -41,6 +42,7 @@ export async function crearExamen(input: {
     .insert({
       titulo,
       materia_id: input.materia_id,
+      tema_id: input.tema_id || null,
       origen: input.origen,
       creado_por: profile.id,
     })

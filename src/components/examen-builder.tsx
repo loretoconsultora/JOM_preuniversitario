@@ -3,7 +3,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Sparkles, Upload, Trash2, Download, Loader2, AlertCircle } from "lucide-react";
-import type { Materia, PreguntaBorrador } from "@/types/database";
+import type { Materia, PreguntaBorrador, Tema } from "@/types/database";
 import { crearExamen, generarPreguntasConIA, parsearCSVExamen } from "@/app/portal/examenes/actions";
 
 const CSV_TEMPLATE = `enunciado,opcion_a,opcion_b,opcion_c,opcion_d,respuesta_correcta
@@ -14,12 +14,13 @@ function preguntaVacia(): PreguntaBorrador {
   return { enunciado: "", opciones: ["", "", "", ""], respuesta_correcta: 0 };
 }
 
-export function ExamenBuilder({ materias }: { materias: Materia[] }) {
+export function ExamenBuilder({ materias, temas }: { materias: Materia[]; temas: Tema[] }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [titulo, setTitulo] = useState("");
   const [materiaId, setMateriaId] = useState("");
+  const [temaId, setTemaId] = useState("");
   const [preguntas, setPreguntas] = useState<PreguntaBorrador[]>([]);
   const [origen, setOrigen] = useState<"manual" | "ia" | "plantilla">("manual");
 
@@ -32,6 +33,12 @@ export function ExamenBuilder({ materias }: { materias: Materia[] }) {
   const [error, setError] = useState<string | null>(null);
 
   const materiaNombre = materias.find((m) => m.id === materiaId)?.nombre ?? "";
+  const temasMateria = temas.filter((t) => t.materia_id === materiaId);
+
+  function onMateriaChange(valor: string) {
+    setMateriaId(valor);
+    setTemaId("");
+  }
 
   function agregarPreguntaManual() {
     setPreguntas((prev) => [...prev, preguntaVacia()]);
@@ -144,7 +151,7 @@ export function ExamenBuilder({ materias }: { materias: Materia[] }) {
     }
     setGuardando(true);
     try {
-      await crearExamen({ titulo, materia_id: materiaId, origen, preguntas });
+      await crearExamen({ titulo, materia_id: materiaId, tema_id: temaId || null, origen, preguntas });
       router.push("/portal/examenes");
       router.refresh();
     } catch (e) {
@@ -170,11 +177,28 @@ export function ExamenBuilder({ materias }: { materias: Materia[] }) {
 
       <label className="flex flex-col gap-1.5 text-sm">
         Materia
-        <select value={materiaId} onChange={(e) => setMateriaId(e.target.value)} className={inputClass}>
+        <select value={materiaId} onChange={(e) => onMateriaChange(e.target.value)} className={inputClass}>
           <option value="">Selecciona una materia</option>
           {materias.map((m) => (
             <option key={m.id} value={m.id}>
               {m.nombre}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1.5 text-sm">
+        Tema del temario (opcional)
+        <select
+          value={temaId}
+          onChange={(e) => setTemaId(e.target.value)}
+          disabled={!materiaId}
+          className={`${inputClass} disabled:opacity-60`}
+        >
+          <option value="">Sin vincular a un tema</option>
+          {temasMateria.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.titulo}
             </option>
           ))}
         </select>

@@ -109,7 +109,7 @@ export default async function TareasPage() {
             const tareaArchivos = archivosPorTarea.get(tarea.id) ?? [];
 
             return (
-              <div key={tarea.id} className="glass flex flex-col gap-3 rounded-2xl p-5">
+              <div key={tarea.id} id={`tarea-${tarea.id}`} className="glass flex flex-col gap-3 rounded-2xl p-5 scroll-mt-24">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <span className="inline-block rounded-full bg-jom-yellow/40 px-2.5 py-0.5 text-xs font-medium text-jom-ink">

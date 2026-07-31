@@ -2,14 +2,18 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Materia } from "@/types/database";
+import type { Materia, Tema } from "@/types/database";
 import { ExamenBuilder } from "@/components/examen-builder";
 
 export default async function NuevoExamenPage() {
   await requireDocente();
   const supabase = await createClient();
-  const { data: materias } = await supabase.from("materias").select("*").order("nombre");
+  const [{ data: materias }, { data: temas }] = await Promise.all([
+    supabase.from("materias").select("*").order("nombre"),
+    supabase.from("temas").select("*").order("orden"),
+  ]);
   const materiasList = (materias ?? []) as Materia[];
+  const temasList = (temas ?? []) as Tema[];
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -22,7 +26,7 @@ export default async function NuevoExamenPage() {
         <p className="text-muted mb-6 text-sm">
           Agrega preguntas manualmente, genera preguntas con IA a partir de un tema, o sube una plantilla CSV. Puedes combinar los tres métodos y revisar todo antes de guardar.
         </p>
-        <ExamenBuilder materias={materiasList} />
+        <ExamenBuilder materias={materiasList} temas={temasList} />
       </div>
     </div>
   );

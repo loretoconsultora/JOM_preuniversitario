@@ -1,14 +1,16 @@
 import Link from "next/link";
-import { Plus, Trash2, Paperclip, Download, LinkIcon, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Paperclip, Download, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TEMARIO_BUCKET, formatBytes } from "@/lib/storage";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import type {
+  Examen,
   Materia,
   Subtema,
   SubtemaEjercicio,
   SubtemaVideo,
+  Tarea,
   Tema,
   TemaArchivo,
 } from "@/types/database";
@@ -39,21 +41,34 @@ export default async function TemarioPage({
   const temasList = (temas ?? []) as Tema[];
   const temaIds = temasList.map((t) => t.id);
 
-  const [{ data: archivos, error: eArchivos }, { data: subtemas, error: eSubtemas }] =
+  const [
+    { data: archivos, error: eArchivos },
+    { data: subtemas, error: eSubtemas },
+    { data: tareasVinculadas, error: eTareasVinc },
+    { data: examenesVinculados, error: eExamenesVinc },
+  ] =
     temaIds.length > 0
       ? await Promise.all([
           supabase.from("tema_archivos").select("*").in("tema_id", temaIds),
           supabase.from("subtemas").select("*").in("tema_id", temaIds).order("orden"),
+          supabase.from("tareas").select("*").in("tema_id", temaIds),
+          supabase.from("examenes").select("*").in("tema_id", temaIds),
         ])
       : [
           { data: [] as TemaArchivo[], error: null },
           { data: [] as Subtema[], error: null },
+          { data: [] as Tarea[], error: null },
+          { data: [] as Examen[], error: null },
         ];
   if (eArchivos) throw new Error(`tema_archivos: ${eArchivos.message}`);
   if (eSubtemas) throw new Error(`subtemas: ${eSubtemas.message}`);
+  if (eTareasVinc) throw new Error(`tareas: ${eTareasVinc.message}`);
+  if (eExamenesVinc) throw new Error(`examenes: ${eExamenesVinc.message}`);
 
   const archivosList = (archivos ?? []) as TemaArchivo[];
   const subtemasList = (subtemas ?? []) as Subtema[];
+  const tareasVinculadasList = (tareasVinculadas ?? []) as Tarea[];
+  const examenesVinculadosList = (examenesVinculados ?? []) as Examen[];
   const subtemaIds = subtemasList.map((s) => s.id);
 
   const [{ data: ejercicios, error: eEjercicios }, { data: videos, error: eVideos }] =
@@ -91,6 +106,22 @@ export default async function TemarioPage({
     const list = archivosPorTema.get(a.tema_id) ?? [];
     list.push(a);
     archivosPorTema.set(a.tema_id, list);
+  }
+
+  const tareasPorTema = new Map<string, Tarea[]>();
+  for (const t of tareasVinculadasList) {
+    if (!t.tema_id) continue;
+    const list = tareasPorTema.get(t.tema_id) ?? [];
+    list.push(t);
+    tareasPorTema.set(t.tema_id, list);
+  }
+
+  const examenesPorTema = new Map<string, Examen[]>();
+  for (const ex of examenesVinculadosList) {
+    if (!ex.tema_id) continue;
+    const list = examenesPorTema.get(ex.tema_id) ?? [];
+    list.push(ex);
+    examenesPorTema.set(ex.tema_id, list);
   }
 
   const subtemasPorTema = new Map<string, Subtema[]>();
@@ -156,6 +187,8 @@ export default async function TemarioPage({
           {temasList.map((tema) => {
             const temaArchivos = archivosPorTema.get(tema.id) ?? [];
             const temaSubtemas = subtemasPorTema.get(tema.id) ?? [];
+            const temaTareas = tareasPorTema.get(tema.id) ?? [];
+            const temaExamenes = examenesPorTema.get(tema.id) ?? [];
 
             return (
               <details key={tema.id} className="glass group rounded-2xl p-5 open:pb-5" open>
@@ -203,6 +236,29 @@ export default async function TemarioPage({
                           )}
                           <Download size={13} className="text-muted shrink-0" />
                         </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {(temaTareas.length > 0 || temaExamenes.length > 0) && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {temaTareas.map((t) => (
+                        <Link
+                          key={t.id}
+                          href={`/portal/tareas#tarea-${t.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 dark:bg-white/10"
+                        >
+                          <ClipboardList size={12} /> {t.titulo}
+                        </Link>
+                      ))}
+                      {temaExamenes.map((ex) => (
+                        <Link
+                          key={ex.id}
+                          href={`/portal/examenes/${ex.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 dark:bg-white/10"
+                        >
+                          <FileQuestion size={12} /> {ex.titulo}
+                        </Link>
                       ))}
                     </div>
                   )}

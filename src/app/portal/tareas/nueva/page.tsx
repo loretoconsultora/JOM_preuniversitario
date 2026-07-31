@@ -2,15 +2,19 @@ import Link from "next/link";
 import { ArrowLeft, CalendarDays, Paperclip } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Materia } from "@/types/database";
+import type { Materia, Tema } from "@/types/database";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { crearTarea } from "../actions";
 
 export default async function NuevaTareaPage() {
   await requireDocente();
   const supabase = await createClient();
-  const { data: materias } = await supabase.from("materias").select("*").order("nombre");
+  const [{ data: materias }, { data: temas }] = await Promise.all([
+    supabase.from("materias").select("*").order("nombre"),
+    supabase.from("temas").select("*").order("orden"),
+  ]);
   const materiasList = (materias ?? []) as Materia[];
+  const temasList = (temas ?? []) as Tema[];
 
   const inputClass =
     "glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
@@ -40,6 +44,29 @@ export default async function NuevaTareaPage() {
             <label className="flex flex-col gap-1.5 text-sm">
               Título
               <input name="titulo" required placeholder="Ej. Ejercicios de cinemática" className={inputClass} />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm">
+              Tema del temario (opcional)
+              <select name="tema_id" className={inputClass}>
+                <option value="">Sin vincular a un tema</option>
+                {materiasList.map((m) => {
+                  const temasMateria = temasList.filter((t) => t.materia_id === m.id);
+                  if (temasMateria.length === 0) return null;
+                  return (
+                    <optgroup key={m.id} label={m.nombre}>
+                      {temasMateria.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.titulo}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+              <span className="text-muted text-xs">
+                Si la vinculas, esta tarea aparece dentro de ese tema en el Temario.
+              </span>
             </label>
 
             <div className="flex flex-col gap-1.5 text-sm">
