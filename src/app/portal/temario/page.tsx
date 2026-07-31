@@ -19,6 +19,17 @@ import { MateriaBannerUpload } from "@/components/materia-banner-upload";
 import { ArchivoPreview } from "@/components/archivo-preview";
 import { eliminarTema } from "./actions";
 
+const TEMA_ACCENTS = [
+  {
+    card: "border-jom-pink/40 bg-jom-pink/12 dark:bg-jom-pink/10",
+    subtema: "border-jom-pink/25 bg-jom-pink/5 dark:bg-jom-pink/8",
+  },
+  {
+    card: "border-jom-yellow/50 bg-jom-yellow/20 dark:bg-jom-yellow/12",
+    subtema: "border-jom-yellow/35 bg-jom-yellow/10 dark:bg-jom-yellow/8",
+  },
+];
+
 export default async function TemarioPage({
   searchParams,
 }: {
@@ -196,14 +207,19 @@ export default async function TemarioPage({
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {temasList.map((tema) => {
+          {temasList.map((tema, temaIndex) => {
             const temaArchivos = archivosPorTema.get(tema.id) ?? [];
             const temaSubtemas = subtemasPorTema.get(tema.id) ?? [];
             const temaTareas = tareasPorTema.get(tema.id) ?? [];
             const temaExamenes = examenesPorTema.get(tema.id) ?? [];
+            const accent = TEMA_ACCENTS[temaIndex % TEMA_ACCENTS.length];
 
             return (
-              <details key={tema.id} className="glass group rounded-2xl p-5 open:pb-5" open>
+              <details
+                key={tema.id}
+                className={`group rounded-2xl border p-5 shadow-sm open:pb-5 ${accent.card}`}
+                open
+              >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                   <div>
                     <h2 className="font-semibold">{tema.titulo}</h2>
@@ -276,7 +292,7 @@ export default async function TemarioPage({
                         const subEjercicios = ejerciciosPorSubtema.get(subtema.id) ?? [];
                         const subVideos = videosPorSubtema.get(subtema.id) ?? [];
                         return (
-                          <div key={subtema.id} className="rounded-xl bg-black/5 p-3 dark:bg-white/5">
+                          <div key={subtema.id} className={`rounded-xl border p-3 ${accent.subtema}`}>
                             <p className="text-sm font-medium">{subtema.titulo}</p>
                             {subtema.detalle && (
                               <p className="text-muted mt-1 whitespace-pre-line text-xs">{subtema.detalle}</p>
