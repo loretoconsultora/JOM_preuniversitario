@@ -19,13 +19,14 @@ export default async function TemarioPage({
 }: {
   searchParams: Promise<{ materia?: string }>;
 }) {
-  const profile = await requireProfile();
-  const { materia: materiaSeleccionadaParam } = await searchParams;
-  const isDocente = profile.role === "docente";
-
   try {
+    const profile = await requireProfile();
+    const { materia: materiaSeleccionadaParam } = await searchParams;
+    const isDocente = profile.role === "docente";
     return await renderTemario(materiaSeleccionadaParam, isDocente);
   } catch (e) {
+    const digest = (e as { digest?: string })?.digest;
+    if (typeof digest === "string" && digest.startsWith("NEXT_")) throw e;
     const message = e instanceof Error ? e.message : String(e);
     const stack = e instanceof Error ? e.stack : undefined;
     return (
