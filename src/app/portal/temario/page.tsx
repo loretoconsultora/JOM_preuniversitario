@@ -25,15 +25,18 @@ export default async function TemarioPage({
     const isDocente = profile.role === "docente";
     return await renderTemario(materiaSeleccionadaParam, isDocente);
   } catch (e) {
-    const digest = (e as { digest?: string })?.digest;
+    const digest = (e as { digest?: string } | null)?.digest;
     if (typeof digest === "string" && digest.startsWith("NEXT_")) throw e;
-    const message = e instanceof Error ? e.message : String(e);
-    const stack = e instanceof Error ? e.stack : undefined;
+    let message: string;
+    try {
+      message = e instanceof Error ? e.message : JSON.stringify(e);
+    } catch {
+      message = "No se pudo leer el mensaje del error.";
+    }
     return (
       <div className="glass mx-auto flex max-w-2xl flex-col gap-2 rounded-2xl p-6 text-left text-sm">
-        <p className="font-semibold text-red-500">Error real (debug temporal):</p>
+        <p className="font-semibold text-red-500">Error real v2 (debug temporal):</p>
         <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs">{message}</pre>
-        {stack && <pre className="text-muted overflow-x-auto whitespace-pre-wrap break-words text-[10px]">{stack}</pre>}
       </div>
     );
   }
