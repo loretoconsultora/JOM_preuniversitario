@@ -21,8 +21,25 @@ export default async function TemarioPage({
 }) {
   const profile = await requireProfile();
   const { materia: materiaSeleccionadaParam } = await searchParams;
-  const supabase = await createClient();
   const isDocente = profile.role === "docente";
+
+  try {
+    return await renderTemario(materiaSeleccionadaParam, isDocente);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    const stack = e instanceof Error ? e.stack : undefined;
+    return (
+      <div className="glass mx-auto flex max-w-2xl flex-col gap-2 rounded-2xl p-6 text-left text-sm">
+        <p className="font-semibold text-red-500">Error real (debug temporal):</p>
+        <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs">{message}</pre>
+        {stack && <pre className="text-muted overflow-x-auto whitespace-pre-wrap break-words text-[10px]">{stack}</pre>}
+      </div>
+    );
+  }
+}
+
+async function renderTemario(materiaSeleccionadaParam: string | undefined, isDocente: boolean) {
+  const supabase = await createClient();
 
   const { data: materias, error: eMaterias } = await supabase.from("materias").select("*").order("nombre");
   if (eMaterias) throw new Error(`materias: ${eMaterias.message}`);
