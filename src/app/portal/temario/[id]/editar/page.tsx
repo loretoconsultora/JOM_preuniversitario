@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Paperclip, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Paperclip, Trash2 } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TEMARIO_BUCKET, formatBytes } from "@/lib/storage";
 import type { Materia, Subtema, SubtemaBorrador, SubtemaEjercicio, SubtemaVideo, Tema, TemaArchivo } from "@/types/database";
 import { TemaBuilder } from "@/components/tema-builder";
-import { eliminarArchivoTema, subirArchivosTema } from "../../actions";
+import { TemaArchivoUploader } from "@/components/tema-archivo-uploader";
+import { eliminarArchivoTema } from "../../actions";
 
 export default async function EditarTemaPage({
   params,
@@ -102,22 +103,7 @@ export default async function EditarTemaPage({
               </form>
             </div>
           ))}
-          <form action={subirArchivosTema.bind(null, id)} className="flex items-center gap-2">
-            <input
-              type="file"
-              name="archivos"
-              multiple
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.webp"
-              className="glass flex-1 rounded-xl px-4 py-2 text-xs file:mr-3 file:rounded-full file:border-0 file:bg-jom-ink file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-jom-white focus:outline-none focus:ring-2 focus:ring-jom-pink dark:file:bg-jom-white dark:file:text-jom-ink"
-            />
-            <button
-              type="submit"
-              aria-label="Subir archivos"
-              className="glass shrink-0 rounded-full p-2.5 transition-opacity hover:opacity-80"
-            >
-              <Upload size={14} />
-            </button>
-          </form>
+          <TemaArchivoUploader temaId={id} />
         </div>
 
         <TemaBuilder

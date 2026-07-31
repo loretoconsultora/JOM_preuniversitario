@@ -4,7 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, AlertCircle, Film, LinkIcon } from "lucide-react";
 import type { Materia, SubtemaBorrador } from "@/types/database";
-import { crearTema, actualizarTema, subirArchivosTema } from "@/app/portal/temario/actions";
+import { crearTema, actualizarTema } from "@/app/portal/temario/actions";
+import { subirArchivoTema } from "@/lib/subir-archivo-tema";
 
 function subtemaVacio(): SubtemaBorrador {
   return { titulo: "", detalle: "", ejercicios: [], videos: [] };
@@ -118,9 +119,9 @@ export function TemaBuilder({
         const { id } = await crearTema(input);
         const archivos = fileInputRef.current?.files;
         if (archivos && archivos.length > 0) {
-          const formData = new FormData();
-          for (const archivo of Array.from(archivos)) formData.append("archivos", archivo);
-          await subirArchivosTema(id, formData);
+          for (const archivo of Array.from(archivos)) {
+            await subirArchivoTema(id, archivo);
+          }
         }
         router.push("/portal/temario");
         router.refresh();

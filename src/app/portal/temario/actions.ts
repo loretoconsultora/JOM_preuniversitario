@@ -7,10 +7,6 @@ import { TEMARIO_BUCKET, MATERIA_BANNERS_BUCKET } from "@/lib/storage";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import type { SubtemaBorrador } from "@/types/database";
 
-function sanitizeFilename(name: string) {
-  return name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-}
-
 function normalizarUrl(url: string) {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
@@ -153,29 +149,25 @@ export async function actualizarTema(
   revalidatePath(`/portal/temario/${id}/editar`);
 }
 
-export async function subirArchivosTema(temaId: string, formData: FormData) {
+// El archivo se sube directo a Storage desde el navegador (ver TemaArchivoUploader):
+// las funciones serverless de Vercel rechazan cuerpos de más de 4.5 MB, así que
+// esta acción solo registra el archivo ya subido (payload pequeño, sin bytes).
+export async function registrarArchivoTema(
+  temaId: string,
+  archivo: { storage_path: string; nombre_archivo: string; tipo_mime: string | null; tamano_bytes: number }
+) {
   const profile = await requireDocente();
-  const archivos = formData.getAll("archivos").filter((f): f is File => f instanceof File && f.size > 0);
-  if (archivos.length === 0) return;
-
   const supabase = await createClient();
-  for (const archivo of archivos) {
-    const storagePath = `${temaId}/${crypto.randomUUID()}-${sanitizeFilename(archivo.name)}`;
-    const { error: uploadError } = await supabase.storage
-      .from(TEMARIO_BUCKET)
-      .upload(storagePath, archivo, { contentType: archivo.type || undefined });
-    if (uploadError) throw new Error(`No se pudo subir "${archivo.name}": ${uploadError.message}`);
 
-    const { error } = await supabase.from("tema_archivos").insert({
-      tema_id: temaId,
-      storage_path: storagePath,
-      nombre_archivo: archivo.name,
-      tipo_mime: archivo.type || null,
-      tamano_bytes: archivo.size,
-      creado_por: profile.id,
-    });
-    if (error) throw new Error(error.message);
-  }
+  const { error } = await supabase.from("tema_archivos").insert({
+    tema_id: temaId,
+    storage_path: archivo.storage_path,
+    nombre_archivo: archivo.nombre_archivo,
+    tipo_mime: archivo.tipo_mime,
+    tamano_bytes: archivo.tamano_bytes,
+    creado_por: profile.id,
+  });
+  if (error) throw new Error(error.message);
 
   revalidatePath("/portal/temario");
   revalidatePath(`/portal/temario/${temaId}/editar`);
