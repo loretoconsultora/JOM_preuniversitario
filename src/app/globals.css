@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-jom-ink: #252d2b;
+  --color-jom-yellow: #ead67c;
+  --color-jom-pink: #eca9ad;
+  --color-jom-white: #fbfbf9;
+  --color-jom-gray: #797871;
+
+  --color-fg: var(--fg);
+  --color-bg: var(--bg);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --bg: var(--color-jom-white);
+  --fg: var(--color-jom-ink);
+  --surface: rgba(255, 255, 255, 0.55);
+  --surface-border: rgba(255, 255, 255, 0.6);
+  --surface-strong: rgba(255, 255, 255, 0.78);
+  --muted: var(--color-jom-gray);
+}
+
+:root[data-theme="dark"] {
+  --bg: var(--color-jom-ink);
+  --fg: var(--color-jom-white);
+  --surface: rgba(37, 45, 43, 0.55);
+  --surface-border: rgba(251, 251, 249, 0.12);
+  --surface-strong: rgba(37, 45, 43, 0.78);
+  --muted: #a9a89f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: var(--color-jom-ink);
+    --fg: var(--color-jom-white);
+    --surface: rgba(37, 45, 43, 0.55);
+    --surface-border: rgba(251, 251, 249, 0.12);
+    --surface-strong: rgba(37, 45, 43, 0.78);
+    --muted: #a9a89f;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(1100px 600px at 85% -10%, color-mix(in srgb, var(--color-jom-yellow) 28%, transparent), transparent 60%),
+    radial-gradient(900px 560px at -10% 110%, color-mix(in srgb, var(--color-jom-pink) 28%, transparent), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--fg);
+  min-height: 100vh;
+}
+
+.glass {
+  background: var(--surface);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 8px 32px rgba(37, 45, 43, 0.08);
+}
+
+.glass-strong {
+  background: var(--surface-strong);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 12px 40px rgba(37, 45, 43, 0.1);
+}
+
+.text-muted {
+  color: var(--muted);
+}
