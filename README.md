@@ -55,11 +55,13 @@ según su rol:
       cargan esos 5; falta por agregar cuando tengas el resto). Requiere que
       ya exista al menos un perfil con `role = 'docente'` (paso 2), porque
       cada tema/subtema queda asignado a esa cuenta como creador.
+   8. `0008_perfil.sql` — agrega `avatar_url` a `profiles`, permite que cada
+      quien edite su propio nombre/foto (sin poder cambiarse el rol) y crea
+      el bucket público `avatares` para las fotos de perfil.
 
    Si el proyecto es nuevo y aún no habías corrido ninguna migración, igual
-   corre las siete en ese orden (cada una depende de la anterior). Si ya
-   corriste hasta la `0005`, solo te falta correr la `0006` y luego la
-   `0007`.
+   corre las ocho en ese orden (cada una depende de la anterior). Si ya
+   corriste hasta la `0007`, solo te falta correr la `0008`.
 
 ## 2. Crear tu cuenta (docente) y la de las directoras
 
@@ -117,12 +119,14 @@ src/
       calificaciones/           Notas de tareas y evaluaciones, editables (alumno ve lo propio, staff ve todo)
       recursos/                  Archivos o links generales, con estatus de "visto" por alumno
       temario/                  Temas y subtemas por materia, con adjuntos, ejercicios y videos
+      perfil/                   Cada usuario edita su propio nombre y foto de avatar
       alumnos/                  Roster y detalle por alumno (staff), alta de alumnos (docente)
   components/
     examen-builder.tsx          Formulario de creación de examen (manual + IA + subir CSV)
     tomar-examen-form.tsx       Formulario del alumno para responder un examen
     recurso-form.tsx            Formulario de nuevo recurso (archivo o link)
     tema-builder.tsx             Formulario de creación/edición de un tema (subtemas, ejercicios, videos)
+    perfil-form.tsx              Formulario de "Mi perfil" (nombre + foto de avatar)
   lib/
     supabase/                  Clientes de Supabase (browser, server, middleware, admin)
     storage.ts                 Helpers de Supabase Storage (buckets de adjuntos)
@@ -139,6 +143,7 @@ supabase/
     0005_recursos.sql           Recursos (archivo/link) y seguimiento de "visto" por alumno
     0006_temario.sql            Temas, subtemas, ejercicios y videos (tablas + bucket de Storage)
     0007_temario_contenido.sql  Siembra el temario real (Matemáticas, Física y Química parcial)
+    0008_perfil.sql             avatar_url en profiles, edición del propio perfil, bucket "avatares"
 ```
 
 ## Exámenes: cómo funciona la autocalificación
@@ -183,6 +188,22 @@ tema, el docente puede:
 - Escribir un "detalle" opcional por subtema para el tercer nivel de
   desglose del temario original (ej. "1.1.1 Suma y resta; 1.1.2
   Multiplicación y división"), sin necesidad de otra tabla.
+
+## Mi perfil: nombre y foto
+
+Cada persona (alumno, docente o directora) puede entrar a **Mi perfil**
+(dando clic a su nombre/avatar en el navbar) para cambiar su nombre y subir
+una foto. La foto se guarda en el bucket público `avatares`, en una carpeta
+por usuario (`{user_id}/avatar.ext`), y el nombre/foto se reflejan de
+inmediato en el navbar. Por seguridad, aunque cualquiera puede editar su
+propia fila en `profiles`, un trigger (`prevent_self_role_change`) impide
+que alguien se autoasigne el rol de docente — el rol solo lo cambia un
+docente desde **Alumnos**.
+
+Si una cuenta se creó a mano desde el dashboard de Supabase (sin pasar por
+**Alumnos → Nuevo alumno**), su `nombre_completo` queda igual al correo por
+default; esa persona solo tiene que entrar a **Mi perfil** una vez y
+corregirlo ella misma.
 
 ## Qué falta (próximas iteraciones)
 

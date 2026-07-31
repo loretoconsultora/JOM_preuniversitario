@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { User } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { JomLogo } from "@/components/jom-logo";
 import { PortalNav } from "@/components/portal-nav";
@@ -26,10 +28,22 @@ export default async function PortalLayout({
             <PortalNav role={profile.role} />
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium leading-tight">{profile.nombre_completo}</p>
-              <p className="text-muted text-xs leading-tight">{ROLE_LABEL[profile.role]}</p>
-            </div>
+            <Link href="/portal/perfil" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+              <div className="hidden text-right sm:block">
+                <p className="text-sm font-medium leading-tight">{profile.nombre_completo}</p>
+                <p className="text-muted text-xs leading-tight">{ROLE_LABEL[profile.role]}</p>
+              </div>
+              <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                {profile.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- avatar subido por el usuario, no un asset estático
+                  <img src={profile.avatar_url} alt={profile.nombre_completo} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="bg-jom-pink/30 flex h-full w-full items-center justify-center">
+                    <User size={16} className="text-jom-ink/60" />
+                  </div>
+                )}
+              </div>
+            </Link>
             <ThemeToggle />
             <SignOutButton />
           </div>
