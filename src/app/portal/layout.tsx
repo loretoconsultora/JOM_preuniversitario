@@ -22,7 +22,7 @@ export default async function PortalLayout({
       <header className="sticky top-0 z-10 px-4 pt-4 sm:px-6">
         <div className="glass-strong mx-auto flex max-w-5xl items-center justify-between rounded-2xl px-4 py-3 sm:px-6">
           <div className="flex items-center gap-6">
-            <JomLogo className="text-xl" />
+            <JomLogo className="h-9 w-auto" />
             <PortalNav role={profile.role} />
           </div>
           <div className="flex items-center gap-3">

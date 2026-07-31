@@ -45,7 +45,7 @@ export function LoginForm() {
 
       <div className="glass-strong w-full max-w-md rounded-3xl p-8 sm:p-10">
         <div className="mb-8 flex flex-col items-center">
-          <JomLogo className="mb-3 text-4xl" />
+          <JomLogo className="mb-3 h-16 w-auto" />
           <h1 className="text-lg font-semibold">Preuniversitario</h1>
           <p className="text-muted mt-1 text-sm">Ingresa a tu portal de tareas y evaluaciones</p>
         </div>
