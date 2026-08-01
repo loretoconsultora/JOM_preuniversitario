@@ -217,7 +217,13 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
         </div>
       </div>
 
-      <NotasSection pacienteId={id} notas={notasList} />
+      <NotasSection
+        pacienteId={id}
+        notas={notasList}
+        notasDeSesion={sesionesList
+          .filter((s): s is PacienteSesion & { nota: string } => Boolean(s.nota))
+          .map((s) => ({ id: s.id, fecha: s.fecha, contenido: s.nota }))}
+      />
     </div>
   );
 }

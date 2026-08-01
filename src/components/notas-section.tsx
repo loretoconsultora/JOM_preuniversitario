@@ -9,12 +9,43 @@ function formatFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function NotasSection({ pacienteId, notas }: { pacienteId: string; notas: PacienteNota[] }) {
+function formatFechaSesion(fecha: string) {
+  return new Date(`${fecha}T00:00:00`).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+}
+
+type NotaDeSesion = { id: string; fecha: string; contenido: string };
+
+export function NotasSection({
+  pacienteId,
+  notas,
+  notasDeSesion = [],
+}: {
+  pacienteId: string;
+  notas: PacienteNota[];
+  notasDeSesion?: NotaDeSesion[];
+}) {
   const router = useRouter();
   const [nuevo, setNuevo] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandida, setExpandida] = useState<string | null>(null);
+
+  const combinadas = [
+    ...notas.map((n) => ({
+      id: n.id,
+      contenido: n.contenido,
+      fechaOrden: n.created_at,
+      fechaLabel: formatFecha(n.created_at),
+      deSesion: false,
+    })),
+    ...notasDeSesion.map((n) => ({
+      id: n.id,
+      contenido: n.contenido,
+      fechaOrden: n.fecha,
+      fechaLabel: formatFechaSesion(n.fecha),
+      deSesion: true,
+    })),
+  ].sort((a, b) => b.fechaOrden.localeCompare(a.fechaOrden));
 
   async function guardar() {
     setError(null);
@@ -53,11 +84,11 @@ export function NotasSection({ pacienteId, notas }: { pacienteId: string; notas:
         </button>
       </div>
 
-      {notas.length === 0 ? (
+      {combinadas.length === 0 ? (
         <p className="text-muted text-sm">Todavía no hay notas.</p>
       ) : (
         <div className="glass flex flex-col divide-y divide-black/5 rounded-2xl dark:divide-white/5">
-          {notas.map((n) => {
+          {combinadas.map((n) => {
             const abierta = expandida === n.id;
             return (
               <button
@@ -67,7 +98,10 @@ export function NotasSection({ pacienteId, notas }: { pacienteId: string; notas:
                 className="flex flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <p className={`text-sm ${abierta ? "whitespace-pre-line" : "truncate"}`}>{n.contenido}</p>
-                <span className="text-muted text-xs">{formatFecha(n.created_at)}</span>
+                <span className="text-muted text-xs">
+                  {n.fechaLabel}
+                  {n.deSesion && " · Nota de sesión"}
+                </span>
               </button>
             );
           })}
