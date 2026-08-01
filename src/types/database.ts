@@ -1,4 +1,4 @@
-export type Role = "alumno" | "docente" | "directora";
+export type Role = "alumno" | "docente" | "directora" | "terapeuta";
 
 export type Profile = {
   id: string;
@@ -158,6 +158,55 @@ export type SubtemaVideo = {
   titulo: string | null;
   youtube_url: string;
   orden: number;
+};
+
+export type Paciente = {
+  id: string;
+  terapeuta_id: string;
+  alumno_id: string | null;
+  nombre: string;
+  motivo_referencia: string | null;
+  nota: string | null;
+  fecha_alta: string;
+  activo: boolean;
+  created_at: string;
+};
+
+export type EstadoSesion = "pendiente" | "asistio" | "no_asistio" | "reagendada";
+
+export type PacienteSesion = {
+  id: string;
+  paciente_id: string;
+  fecha: string;
+  hora: string | null;
+  estado: EstadoSesion;
+  nota: string | null;
+  reagendada_a_id: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type Habilidad = {
+  id: string;
+  nombre: string;
+  creado_por: string;
+  created_at: string;
+};
+
+export type EvaluacionHabilidad = {
+  id: string;
+  paciente_id: string;
+  numero_periodo: number;
+  conclusiones: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type EvaluacionHabilidadCalificacion = {
+  id: string;
+  evaluacion_id: string;
+  habilidad_id: string;
+  calificacion: number;
 };
 
 export type EjercicioBorrador = { titulo: string; url: string };

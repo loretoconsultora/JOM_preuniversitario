@@ -41,3 +41,11 @@ export async function requireDocente(): Promise<Profile> {
   }
   return profile;
 }
+
+export async function requireTerapeuta(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (profile.role !== "terapeuta") {
+    redirect("/portal");
+  }
+  return profile;
+}

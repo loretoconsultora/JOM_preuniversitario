@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, GraduationCap, Users, FileQuestion, FolderOpen, BookOpen } from "lucide-react";
+import {
+  ClipboardList,
+  GraduationCap,
+  Users,
+  FileQuestion,
+  FolderOpen,
+  BookOpen,
+  HeartHandshake,
+  CalendarCheck,
+  ClipboardCheck,
+} from "lucide-react";
 import type { Role } from "@/types/database";
 
 const ALL_ITEMS = [
@@ -12,6 +22,10 @@ const ALL_ITEMS = [
   { href: "/portal/calificaciones", label: "Calificaciones", icon: GraduationCap, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/recursos", label: "Recursos", icon: FolderOpen, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/alumnos", label: "Alumnos", icon: Users, roles: ["docente", "directora"] },
+  { href: "/portal/terapeutas", label: "Terapeutas", icon: HeartHandshake, roles: ["docente"] },
+  { href: "/portal/pacientes", label: "Pacientes", icon: HeartHandshake, roles: ["terapeuta"] },
+  { href: "/portal/asistencia", label: "Asistencia", icon: CalendarCheck, roles: ["terapeuta"] },
+  { href: "/portal/evaluaciones-habilidades", label: "Evaluaciones", icon: ClipboardCheck, roles: ["terapeuta"] },
 ] as const;
 
 export function PortalNav({ role }: { role: Role }) {

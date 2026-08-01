@@ -10,6 +10,7 @@ const ROLE_LABEL: Record<string, string> = {
   alumno: "Alumno",
   docente: "Docente",
   directora: "Directora",
+  terapeuta: "Terapeuta",
 };
 
 export default async function PortalLayout({
