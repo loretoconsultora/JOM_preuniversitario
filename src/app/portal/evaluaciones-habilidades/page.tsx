@@ -168,6 +168,8 @@ export default async function EvaluacionesHabilidadesPage({
                           const ultimo = conDato[conDato.length - 1];
                           const tendencia =
                             conDato.length >= 2 ? (ultimo > primero ? "up" : ultimo < primero ? "down" : "same") : null;
+                          const cambioPct =
+                            conDato.length >= 2 ? Math.round(((ultimo - primero) / primero) * 100) : null;
                           return (
                             <tr key={h.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
                               <td className="py-2 pr-3 font-medium">{h.nombre}</td>
@@ -176,10 +178,12 @@ export default async function EvaluacionesHabilidadesPage({
                                   {v ?? <span className="text-muted">–</span>}
                                 </td>
                               ))}
-                              <td className="px-2 py-2 text-center">
-                                {tendencia === "up" && <span className="text-green-600">▲</span>}
-                                {tendencia === "down" && <span className="text-red-500">▼</span>}
-                                {tendencia === "same" && <span className="text-muted">=</span>}
+                              <td className="px-2 py-2 text-center whitespace-nowrap">
+                                {tendencia === "up" && (
+                                  <span className="text-green-600">▲ +{cambioPct}%</span>
+                                )}
+                                {tendencia === "down" && <span className="text-red-500">▼ {cambioPct}%</span>}
+                                {tendencia === "same" && <span className="text-muted">= 0%</span>}
                                 {tendencia === null && <span className="text-muted">–</span>}
                               </td>
                             </tr>
