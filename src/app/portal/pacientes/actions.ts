@@ -56,6 +56,29 @@ export async function archivarPaciente(id: string, activo: boolean) {
   revalidatePath("/portal/pacientes");
 }
 
+// Solo se puede eliminar un paciente ya archivado, como salvaguarda extra
+// contra borrados accidentales de un caso activo. Al borrar se eliminan en
+// cascada sus sesiones/asistencia, evaluaciones y notas (fk on delete cascade).
+export async function eliminarPaciente(id: string) {
+  await requireTerapeuta();
+  const supabase = await createClient();
+
+  const { data: paciente, error: eSel } = await supabase
+    .from("pacientes")
+    .select("activo")
+    .eq("id", id)
+    .single();
+  if (eSel || !paciente) throw new Error("Paciente no encontrado.");
+  if (paciente.activo) throw new Error("Solo se pueden eliminar pacientes archivados.");
+
+  const { error } = await supabase.from("pacientes").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/portal/pacientes");
+  revalidatePath("/portal/asistencia");
+  redirect("/portal/pacientes");
+}
+
 type AgendamientoInput =
   | { recurrente: true; diaSemana: number; hora: string; fechaInicio: string; fechaFin: string | null }
   | { recurrente: false; sesiones: { fecha: string; hora: string }[] };

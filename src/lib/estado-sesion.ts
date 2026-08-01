@@ -1,7 +1,7 @@
 import type { EstadoSesion } from "@/types/database";
 
 export const ESTADO_LABEL: Record<EstadoSesion, string> = {
-  pendiente: "Pendiente",
+  pendiente: "Programada",
   asistio: "Completada",
   no_asistio: "Cancelada",
   reagendada: "Reprogramada",

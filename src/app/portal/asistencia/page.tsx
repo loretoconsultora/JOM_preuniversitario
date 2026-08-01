@@ -22,30 +22,48 @@ function formatFecha(fecha: string) {
   });
 }
 
-function Grupo({ titulo, sesiones, hoy }: { titulo: string; sesiones: SesionConPaciente[]; hoy: string }) {
-  if (sesiones.length === 0) return null;
+function Grupo({
+  titulo,
+  sesiones,
+  hoy,
+  vacio,
+}: {
+  titulo: string;
+  sesiones: SesionConPaciente[];
+  hoy: string;
+  vacio: string;
+}) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm font-semibold">{titulo}</p>
-      <div className="glass flex flex-col gap-3 rounded-2xl p-5">
-        {sesiones.map((s) => (
-          <div
-            key={s.id}
-            className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between"
-          >
-            <div>
-              <Link href={`/portal/pacientes/${s.paciente_id}`} className="text-sm font-medium hover:underline">
-                {s.pacientes?.nombre ?? "Paciente"}
-              </Link>
-              <p className="text-muted text-xs">
-                {formatFecha(s.fecha)}
-                {s.hora && ` · ${s.hora.slice(0, 5)}`}
-              </p>
+      {sesiones.length === 0 ? (
+        <p className="text-muted text-sm">{vacio}</p>
+      ) : (
+        <div className="glass flex flex-col gap-3 rounded-2xl p-5">
+          {sesiones.map((s) => (
+            <div
+              key={s.id}
+              className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between"
+            >
+              <div>
+                <Link href={`/portal/pacientes/${s.paciente_id}`} className="text-sm font-medium hover:underline">
+                  {s.pacientes?.nombre ?? "Paciente"}
+                </Link>
+                <p className="text-muted text-xs">
+                  {formatFecha(s.fecha)}
+                  {s.hora && ` · ${s.hora.slice(0, 5)}`}
+                </p>
+              </div>
+              <SesionQuickActions
+                sesionId={s.id}
+                estadoInicial={s.estado}
+                notaInicial={s.nota}
+                accionable={s.fecha <= hoy}
+              />
             </div>
-            <SesionQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable={s.fecha <= hoy} />
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -109,16 +127,21 @@ export default async function AsistenciaPage({
             .filter((s) => s.fecha < hoy && s.fecha >= hace7dias)
             .sort((a, b) => b.fecha.localeCompare(a.fecha));
 
-          return deHoy.length === 0 && proximaSemana.length === 0 && semanaPasada.length === 0 ? (
-            <div className="glass rounded-2xl p-8 text-center text-sm text-muted">
-              No hay sesiones en los últimos ni próximos 7 días. Agenda nuevas sesiones desde la ficha de cada
-              paciente.
-            </div>
-          ) : (
+          return (
             <>
-              <Grupo titulo="Hoy" sesiones={deHoy} hoy={hoy} />
-              <Grupo titulo="Próximos 7 días" sesiones={proximaSemana} hoy={hoy} />
-              <Grupo titulo="Últimos 7 días" sesiones={semanaPasada} hoy={hoy} />
+              <Grupo titulo="Hoy" sesiones={deHoy} hoy={hoy} vacio="No hay sesiones agendadas para hoy." />
+              <Grupo
+                titulo="Próximos 7 días"
+                sesiones={proximaSemana}
+                hoy={hoy}
+                vacio="No hay sesiones agendadas para los próximos 7 días."
+              />
+              <Grupo
+                titulo="Últimos 7 días"
+                sesiones={semanaPasada}
+                hoy={hoy}
+                vacio="No hay sesiones registradas en los últimos 7 días."
+              />
             </>
           );
         })()

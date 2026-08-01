@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, ChevronRight, Sparkles } from "lucide-react";
+import { Plus, ChevronRight, Sparkles, Trash2 } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Paciente, EstadoSesion } from "@/types/database";
@@ -7,6 +7,8 @@ import { evaluacionDisponible } from "@/lib/evaluaciones-habilidades";
 import { pacienteDesdeLabel } from "@/lib/paciente-fecha";
 import { contarPorEstado, emojisAlerta } from "@/lib/estado-sesion";
 import { MotivoChip } from "@/components/motivo-chip";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { eliminarPaciente } from "./actions";
 
 export default async function PacientesPage() {
   await requireTerapeuta();
@@ -105,11 +107,21 @@ export default async function PacientesPage() {
           <summary className="text-muted cursor-pointer text-sm font-medium">
             Pacientes archivados ({inactivos.length})
           </summary>
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-3 flex flex-col gap-1.5">
             {inactivos.map((p) => (
-              <Link key={p.id} href={`/portal/pacientes/${p.id}`} className="text-sm hover:underline">
-                {p.nombre}
-              </Link>
+              <div key={p.id} className="flex items-center justify-between gap-3">
+                <Link href={`/portal/pacientes/${p.id}`} className="text-sm hover:underline">
+                  {p.nombre}
+                </Link>
+                <form action={eliminarPaciente.bind(null, p.id)}>
+                  <ConfirmSubmitButton
+                    mensaje={`¿Eliminar definitivamente a ${p.nombre}? Se borrarán también sus sesiones, evaluaciones y notas. Esto no se puede deshacer.`}
+                    className="text-muted inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs hover:bg-jom-pink/20 hover:text-jom-ink"
+                  >
+                    <Trash2 size={12} /> Eliminar
+                  </ConfirmSubmitButton>
+                </form>
+              </div>
             ))}
           </div>
         </details>
