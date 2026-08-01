@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X, CalendarClock, Pencil } from "lucide-react";
+import { CalendarClock, Pencil } from "lucide-react";
 import { marcarAsistencia, guardarNotaSesion, reagendarSesion } from "@/app/portal/pacientes/actions";
 import type { EstadoSesion } from "@/types/database";
 import { ESTADO_LABEL, ESTADO_CLASS } from "@/lib/estado-sesion";
@@ -89,17 +89,17 @@ export function SesionQuickActions({
               type="button"
               onClick={() => marcar("asistio")}
               disabled={cargando}
-              className="inline-flex items-center gap-1 rounded-full bg-jom-yellow/40 px-2.5 py-1 text-xs font-medium text-jom-ink transition-opacity hover:opacity-80 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 transition-opacity hover:opacity-80 disabled:opacity-50 dark:bg-green-500/20 dark:text-green-400"
             >
-              <Check size={12} /> Asistió
+              ✅ Asistió
             </button>
             <button
               type="button"
               onClick={() => marcar("no_asistio")}
               disabled={cargando}
-              className="inline-flex items-center gap-1 rounded-full bg-jom-pink/30 px-2.5 py-1 text-xs font-medium text-jom-ink transition-opacity hover:opacity-80 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 transition-opacity hover:opacity-80 disabled:opacity-50 dark:bg-red-500/20 dark:text-red-400"
             >
-              <X size={12} /> No asistió
+              ❌ No asistió
             </button>
           </>
         )}

@@ -102,9 +102,10 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
       {disponible && (
         <Link
           href={`/portal/evaluaciones-habilidades?paciente=${id}`}
-          className="glass-strong flex items-center gap-3 rounded-2xl border border-jom-yellow p-4 text-sm transition-opacity hover:opacity-90"
+          className="flex items-center gap-3 rounded-2xl p-4 text-sm font-medium transition-opacity hover:opacity-90"
+          style={{ background: "var(--color-jom-yellow)", color: "var(--color-jom-ink)" }}
         >
-          <Sparkles size={16} className="shrink-0 text-jom-ink dark:text-jom-yellow" />
+          <Sparkles size={16} className="shrink-0" />
           <span>Toca una nueva evaluación mensual de habilidades para {pacienteData.nombre}.</span>
         </Link>
       )}
