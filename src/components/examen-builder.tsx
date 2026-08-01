@@ -3,7 +3,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Sparkles, Upload, Trash2, Download, Loader2, AlertCircle } from "lucide-react";
-import type { Materia, PreguntaBorrador, Tema } from "@/types/database";
+import type { Materia, PreguntaBorrador, Profile, Tema } from "@/types/database";
 import { crearExamen, generarPreguntasConIA, parsearCSVExamen } from "@/app/portal/examenes/actions";
 
 const CSV_TEMPLATE = `enunciado,opcion_a,opcion_b,opcion_c,opcion_d,respuesta_correcta
@@ -14,7 +14,15 @@ function preguntaVacia(): PreguntaBorrador {
   return { enunciado: "", opciones: ["", "", "", ""], respuesta_correcta: 0 };
 }
 
-export function ExamenBuilder({ materias, temas }: { materias: Materia[]; temas: Tema[] }) {
+export function ExamenBuilder({
+  materias,
+  temas,
+  alumnos,
+}: {
+  materias: Materia[];
+  temas: Tema[];
+  alumnos: Profile[];
+}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -23,6 +31,8 @@ export function ExamenBuilder({ materias, temas }: { materias: Materia[]; temas:
   const [temaId, setTemaId] = useState("");
   const [preguntas, setPreguntas] = useState<PreguntaBorrador[]>([]);
   const [origen, setOrigen] = useState<"manual" | "ia" | "plantilla">("manual");
+  const [destinatarios, setDestinatarios] = useState<"todos" | "seleccionados">("todos");
+  const [alumnoIdsSeleccionados, setAlumnoIdsSeleccionados] = useState<string[]>([]);
 
   const [mostrarIA, setMostrarIA] = useState(false);
   const [tema, setTema] = useState("");
@@ -80,6 +90,10 @@ export function ExamenBuilder({ materias, temas }: { materias: Materia[]; temas:
 
   function eliminarPregunta(index: number) {
     setPreguntas((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function toggleAlumno(id: string) {
+    setAlumnoIdsSeleccionados((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
   }
 
   async function generarConIA() {
@@ -149,9 +163,20 @@ export function ExamenBuilder({ materias, temas }: { materias: Materia[]; temas:
       setError("Agrega al menos una pregunta.");
       return;
     }
+    if (destinatarios === "seleccionados" && alumnoIdsSeleccionados.length === 0) {
+      setError("Selecciona al menos un alumno, o cambia a \"Todos los alumnos\".");
+      return;
+    }
     setGuardando(true);
     try {
-      await crearExamen({ titulo, materia_id: materiaId, tema_id: temaId || null, origen, preguntas });
+      await crearExamen({
+        titulo,
+        materia_id: materiaId,
+        tema_id: temaId || null,
+        origen,
+        preguntas,
+        alumnoIds: destinatarios === "seleccionados" ? alumnoIdsSeleccionados : undefined,
+      });
       router.push("/portal/examenes");
       router.refresh();
     } catch (e) {
@@ -203,6 +228,52 @@ export function ExamenBuilder({ materias, temas }: { materias: Materia[]; temas:
           ))}
         </select>
       </label>
+
+      <div className="glass flex flex-col gap-3 rounded-2xl p-4">
+        <p className="text-sm font-medium">Destinatarios</p>
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => setDestinatarios("todos")}
+            className={`rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${
+              destinatarios === "todos"
+                ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink"
+                : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+            }`}
+          >
+            Todos los alumnos
+          </button>
+          <button
+            type="button"
+            onClick={() => setDestinatarios("seleccionados")}
+            className={`rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${
+              destinatarios === "seleccionados"
+                ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink"
+                : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+            }`}
+          >
+            Alumnos seleccionados
+          </button>
+        </div>
+
+        {destinatarios === "seleccionados" &&
+          (alumnos.length === 0 ? (
+            <p className="text-muted text-xs">No hay alumnos registrados todavía.</p>
+          ) : (
+            <div className="flex flex-col gap-1 rounded-xl bg-black/5 p-2 dark:bg-white/5">
+              {alumnos.map((a) => (
+                <label key={a.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10">
+                  <input
+                    type="checkbox"
+                    checked={alumnoIdsSeleccionados.includes(a.id)}
+                    onChange={() => toggleAlumno(a.id)}
+                  />
+                  {a.nombre_completo}
+                </label>
+              ))}
+            </div>
+          ))}
+      </div>
 
       <div className="glass flex flex-col gap-3 rounded-2xl p-4">
         <p className="text-sm font-medium">Agregar preguntas</p>

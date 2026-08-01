@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Users } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Examen, ExamenIntento, ExamenPregunta, Materia, Profile } from "@/types/database";
+import type { Examen, ExamenAlumno, ExamenIntento, ExamenPregunta, Materia, Profile } from "@/types/database";
 import { obtenerPreguntasParaTomar } from "../actions";
 import { TomarExamenForm } from "@/components/tomar-examen-form";
 
@@ -29,14 +29,20 @@ export default async function ExamenDetallePage({
     .single();
 
   if (isStaff) {
-    const [{ data: preguntas }, { data: intentos }, { data: alumnos }] = await Promise.all([
+    const [{ data: preguntas }, { data: intentos }, { data: alumnos }, { data: examenAlumnos }] = await Promise.all([
       supabase.from("examen_preguntas").select("*").eq("examen_id", id).order("orden"),
       supabase.from("examen_intentos").select("*").eq("examen_id", id).order("calificacion", { ascending: false }),
       supabase.from("profiles").select("*").eq("role", "alumno").order("nombre_completo"),
+      supabase.from("examen_alumnos").select("*").eq("examen_id", id),
     ]);
     const preguntasList = (preguntas ?? []) as ExamenPregunta[];
     const intentosList = (intentos ?? []) as ExamenIntento[];
-    const alumnoById = new Map(((alumnos ?? []) as Profile[]).map((a) => [a.id, a]));
+    const alumnosList = (alumnos ?? []) as Profile[];
+    const alumnoById = new Map(alumnosList.map((a) => [a.id, a]));
+    const examenAlumnosList = (examenAlumnos ?? []) as ExamenAlumno[];
+    const destinatarios = examenAlumnosList
+      .map((ea) => alumnoById.get(ea.alumno_id)?.nombre_completo)
+      .filter((n): n is string => Boolean(n));
 
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -50,6 +56,17 @@ export default async function ExamenDetallePage({
           </span>
           <h1 className="mt-2 text-2xl font-semibold">{examenData.titulo}</h1>
           <p className="text-muted text-sm">{preguntasList.length} preguntas</p>
+        </div>
+
+        <div className="glass rounded-2xl p-4">
+          <p className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+            <Users size={14} className="text-muted" /> Destinatarios
+          </p>
+          {destinatarios.length === 0 ? (
+            <p className="text-muted text-sm">Todos los alumnos</p>
+          ) : (
+            <p className="text-muted text-sm">{destinatarios.join(", ")}</p>
+          )}
         </div>
 
         <div>

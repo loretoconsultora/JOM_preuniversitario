@@ -28,6 +28,7 @@ export async function crearExamen(input: {
   tema_id: string | null;
   origen: "manual" | "ia" | "plantilla";
   preguntas: PreguntaBorrador[];
+  alumnoIds?: string[];
 }) {
   const profile = await requireDocente();
 
@@ -62,6 +63,13 @@ export async function crearExamen(input: {
   );
 
   if (preguntasError) throw new Error(preguntasError.message);
+
+  if (input.alumnoIds && input.alumnoIds.length > 0) {
+    const { error: destinatariosError } = await supabase
+      .from("examen_alumnos")
+      .insert(input.alumnoIds.map((alumno_id) => ({ examen_id: examen.id, alumno_id })));
+    if (destinatariosError) throw new Error(destinatariosError.message);
+  }
 
   revalidatePath("/portal/examenes");
   return { id: examen.id as string };
@@ -181,8 +189,21 @@ export async function parsearCSVExamen(formData: FormData): Promise<PreguntaBorr
   });
 }
 
+async function assertExamenAccesible(examenId: string, alumnoId: string) {
+  const admin = createAdminClient();
+  const { data: destinatarios, error } = await admin
+    .from("examen_alumnos")
+    .select("alumno_id")
+    .eq("examen_id", examenId);
+  if (error) throw new Error(error.message);
+  if (destinatarios && destinatarios.length > 0 && !destinatarios.some((d) => d.alumno_id === alumnoId)) {
+    throw new Error("Este examen no está asignado a tu cuenta.");
+  }
+}
+
 export async function obtenerPreguntasParaTomar(examenId: string) {
   const profile = await requireProfile();
+  if (profile.role === "alumno") await assertExamenAccesible(examenId, profile.id);
   const supabase = await createClient();
   const admin = createAdminClient();
 
@@ -216,6 +237,7 @@ export async function entregarExamen(examenId: string, respuestas: Record<string
   if (profile.role !== "alumno") {
     throw new Error("Solo los alumnos pueden presentar exámenes.");
   }
+  await assertExamenAccesible(examenId, profile.id);
 
   const admin = createAdminClient();
   const { data: preguntas, error } = await admin

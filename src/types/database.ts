@@ -86,6 +86,12 @@ export type ExamenIntento = {
   created_at: string;
 };
 
+export type ExamenAlumno = {
+  id: string;
+  examen_id: string;
+  alumno_id: string;
+};
+
 export type PreguntaBorrador = {
   enunciado: string;
   opciones: string[];

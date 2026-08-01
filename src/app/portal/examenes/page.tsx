@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Plus, Trash2, GraduationCap, FileQuestion } from "lucide-react";
+import { Plus, Trash2, GraduationCap, FileQuestion, Users } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Examen, ExamenIntento, Materia } from "@/types/database";
+import type { Examen, ExamenAlumno, ExamenIntento, Materia } from "@/types/database";
 import { eliminarExamen } from "./actions";
 
 export default async function ExamenesPage() {
@@ -11,15 +11,17 @@ export default async function ExamenesPage() {
   const isDocente = profile.role === "docente";
   const isStaff = profile.role === "docente" || profile.role === "directora";
 
-  const [{ data: materias }, { data: examenes }, { data: intentos }, alumnosCountResult] =
+  const [{ data: materias }, { data: examenes }, { data: intentos }, alumnosCountResult, { data: examenAlumnos }] =
     await Promise.all([
       supabase.from("materias").select("*").order("nombre"),
+      // RLS: el alumno solo ve los exámenes abiertos a todos o asignados a él.
       supabase.from("examenes").select("*").order("created_at", { ascending: false }),
       // RLS: el alumno solo ve los suyos, docente/directora ven todos.
       supabase.from("examen_intentos").select("*"),
       isStaff
         ? supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "alumno")
         : Promise.resolve({ count: 0 }),
+      isStaff ? supabase.from("examen_alumnos").select("*") : Promise.resolve({ data: [] }),
     ]);
 
   const materiasList = (materias ?? []) as Materia[];
@@ -27,6 +29,11 @@ export default async function ExamenesPage() {
   const intentosList = (intentos ?? []) as ExamenIntento[];
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));
   const totalAlumnos = alumnosCountResult.count ?? 0;
+
+  const destinatariosPorExamen = new Map<string, number>();
+  for (const ea of (examenAlumnos ?? []) as ExamenAlumno[]) {
+    destinatariosPorExamen.set(ea.examen_id, (destinatariosPorExamen.get(ea.examen_id) ?? 0) + 1);
+  }
 
   const intentoPropioPorExamen = new Map<string, ExamenIntento>();
   const presentadosPorExamen = new Map<string, number>();
@@ -65,14 +72,23 @@ export default async function ExamenesPage() {
             const materia = materiaById.get(examen.materia_id);
             const intentoPropio = intentoPropioPorExamen.get(examen.id);
             const presentados = presentadosPorExamen.get(examen.id) ?? 0;
+            const destinatarios = destinatariosPorExamen.get(examen.id);
+            const totalDestinatarios = destinatarios ?? totalAlumnos;
 
             return (
               <div key={examen.id} className="glass flex flex-col gap-3 rounded-2xl p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="inline-block rounded-full bg-jom-yellow/40 px-2.5 py-0.5 text-xs font-medium text-jom-ink">
-                      {materia?.nombre ?? "Materia"}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-block rounded-full bg-jom-yellow/40 px-2.5 py-0.5 text-xs font-medium text-jom-ink">
+                        {materia?.nombre ?? "Materia"}
+                      </span>
+                      {isStaff && destinatarios !== undefined && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-medium dark:bg-white/10">
+                          <Users size={11} /> Personalizado
+                        </span>
+                      )}
+                    </div>
                     <h2 className="mt-2 flex items-center gap-1.5 font-semibold">
                       <FileQuestion size={15} className="text-muted shrink-0" />
                       {examen.titulo}
@@ -109,7 +125,7 @@ export default async function ExamenesPage() {
                   {isStaff && (
                     <>
                       <span className="text-muted text-xs">
-                        {presentados}/{totalAlumnos} alumnos presentados
+                        {presentados}/{totalDestinatarios} alumnos presentados
                       </span>
                       <Link
                         href={`/portal/examenes/${examen.id}`}
