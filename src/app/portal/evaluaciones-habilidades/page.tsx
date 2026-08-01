@@ -125,9 +125,9 @@ export default async function EvaluacionesHabilidadesPage({
             <NuevaEvaluacionForm pacienteId={pacienteSeleccionado.id} habilidades={habilidadesList} />
           )}
 
-          {pacienteSeleccionado && evaluacionesPaciente.length >= 2 && (
+          {pacienteSeleccionado && evaluacionesPaciente.length > 0 && (
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-semibold">Progreso</p>
+              <p className="text-sm font-semibold">Historial de evaluaciones</p>
               <div className="glass overflow-x-auto rounded-2xl p-5">
                 {(() => {
                   const evaluacionesAsc = [...evaluacionesPaciente].sort((a, b) =>
@@ -152,7 +152,9 @@ export default async function EvaluacionesHabilidadesPage({
                               </span>
                             </th>
                           ))}
-                          <th className="px-2 py-2 text-center font-medium">Tendencia</th>
+                          {evaluacionesAsc.length >= 2 && (
+                            <th className="px-2 py-2 text-center font-medium">Tendencia</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -178,14 +180,14 @@ export default async function EvaluacionesHabilidadesPage({
                                   {v ?? <span className="text-muted">–</span>}
                                 </td>
                               ))}
-                              <td className="px-2 py-2 text-center whitespace-nowrap">
-                                {tendencia === "up" && (
-                                  <span className="text-green-600">▲ +{cambioPct}%</span>
-                                )}
-                                {tendencia === "down" && <span className="text-red-500">▼ {cambioPct}%</span>}
-                                {tendencia === "same" && <span className="text-muted">= 0%</span>}
-                                {tendencia === null && <span className="text-muted">–</span>}
-                              </td>
+                              {evaluacionesAsc.length >= 2 && (
+                                <td className="px-2 py-2 text-center whitespace-nowrap">
+                                  {tendencia === "up" && <span className="text-green-600">▲ +{cambioPct}%</span>}
+                                  {tendencia === "down" && <span className="text-red-500">▼ {cambioPct}%</span>}
+                                  {tendencia === "same" && <span className="text-muted">= 0%</span>}
+                                  {tendencia === null && <span className="text-muted">–</span>}
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
@@ -194,32 +196,21 @@ export default async function EvaluacionesHabilidadesPage({
                   );
                 })()}
               </div>
-            </div>
-          )}
 
-          {pacienteSeleccionado && evaluacionesPaciente.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm font-semibold">Historial de evaluaciones</p>
-              {evaluacionesPaciente.map((ev) => (
-                <div key={ev.id} className="glass rounded-2xl p-5">
-                  <p className="text-sm font-medium">
-                    Evaluación #{ev.numero_periodo} · {new Date(ev.created_at).toLocaleDateString("es-MX")}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(calificacionesPorEvaluacion.get(ev.id) ?? []).map((c) => {
-                      const habilidad = habilidadesList.find((h) => h.id === c.habilidad_id);
-                      return (
-                        <span key={c.id} className="bg-jom-pink/20 rounded-full px-2.5 py-1 text-xs">
-                          {habilidad?.nombre ?? "Habilidad"}: {c.calificacion}/5
-                        </span>
-                      );
-                    })}
-                  </div>
-                  {ev.conclusiones && (
-                    <p className="text-muted mt-2 whitespace-pre-line text-xs">{ev.conclusiones}</p>
-                  )}
+              {evaluacionesPaciente.some((ev) => ev.conclusiones) && (
+                <div className="flex flex-col gap-2">
+                  {evaluacionesPaciente
+                    .filter((ev) => ev.conclusiones)
+                    .map((ev) => (
+                      <div key={ev.id} className="glass rounded-2xl p-4">
+                        <p className="text-muted text-xs font-medium">
+                          Evaluación #{ev.numero_periodo} · {new Date(ev.created_at).toLocaleDateString("es-MX")}
+                        </p>
+                        <p className="mt-1 whitespace-pre-line text-sm">{ev.conclusiones}</p>
+                      </div>
+                    ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </>
