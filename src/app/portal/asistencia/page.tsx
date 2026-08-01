@@ -50,44 +50,13 @@ function Grupo({ titulo, sesiones, hoy }: { titulo: string; sesiones: SesionConP
   );
 }
 
-function ColumnaCategoria({
-  titulo,
-  sesiones,
-}: {
-  titulo: string;
-  sesiones: SesionConPaciente[];
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm font-semibold">
-        {titulo} <span className="text-muted font-normal">({sesiones.length})</span>
-      </p>
-      {sesiones.length === 0 ? (
-        <p className="text-muted text-sm">Sin sesiones en esta categoría.</p>
-      ) : (
-        <div className="glass flex flex-col gap-2.5 rounded-2xl p-4">
-          {sesiones.map((s) => (
-            <div key={s.id} className="border-b border-black/5 pb-2.5 last:border-0 last:pb-0 dark:border-white/5">
-              <p className="text-sm font-medium">
-                {formatFecha(s.fecha)}
-                {s.hora && ` · ${s.hora.slice(0, 5)}`}
-              </p>
-              {s.nota && <p className="text-muted mt-0.5 whitespace-pre-line text-xs">{s.nota}</p>}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default async function AsistenciaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; paciente?: string }>;
+  searchParams: Promise<{ vista?: string }>;
 }) {
   await requireTerapeuta();
-  const { vista: vistaParam, paciente: pacienteIdParam } = await searchParams;
+  const { vista: vistaParam } = await searchParams;
   const vista = vistaParam === "paciente" ? "paciente" : "calendario";
   const supabase = await createClient();
 
@@ -95,6 +64,8 @@ export default async function AsistenciaPage({
   const hoy = ahora.toISOString().slice(0, 10);
   const en7dias = new Date(ahora.getTime() + 1000 * 60 * 60 * 24 * 7).toISOString().slice(0, 10);
   const hace7dias = new Date(ahora.getTime() - 1000 * 60 * 60 * 24 * 7).toISOString().slice(0, 10);
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString().slice(0, 10);
+  const finMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0).toISOString().slice(0, 10);
 
   const [{ data: sesiones, error }, { data: pacientes }] = await Promise.all([
     supabase
@@ -154,42 +125,69 @@ export default async function AsistenciaPage({
       ) : pacientesList.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center text-sm text-muted">Aún no tienes pacientes.</div>
       ) : (
-        <>
-          <div className="flex flex-wrap gap-1.5">
-            {pacientesList.map((p) => (
-              <Link
-                key={p.id}
-                href={`/portal/asistencia?vista=paciente&paciente=${p.id}`}
-                className={tabClass(p.id === pacienteIdParam)}
-              >
-                {p.nombre}
-              </Link>
-            ))}
-          </div>
+        (() => {
+          const filas = pacientesList.map((p) => {
+            const delPaciente = sesionesList.filter((s) => s.paciente_id === p.id);
+            return {
+              paciente: p,
+              programadas: delPaciente.filter(
+                (s) => s.estado === "pendiente" && s.fecha >= inicioMes && s.fecha <= finMes
+              ).length,
+              completadas: delPaciente.filter((s) => s.estado === "asistio").length,
+              reprogramadas: delPaciente.filter((s) => s.estado === "reagendada").length,
+              canceladas: delPaciente.filter((s) => s.estado === "no_asistio").length,
+            };
+          });
+          const totales = filas.reduce(
+            (acc, f) => ({
+              programadas: acc.programadas + f.programadas,
+              completadas: acc.completadas + f.completadas,
+              reprogramadas: acc.reprogramadas + f.reprogramadas,
+              canceladas: acc.canceladas + f.canceladas,
+            }),
+            { programadas: 0, completadas: 0, reprogramadas: 0, canceladas: 0 }
+          );
 
-          {!pacienteIdParam ? (
-            <div className="glass rounded-2xl p-8 text-center text-sm text-muted">
-              Selecciona un paciente para ver su historial de asistencia.
+          return (
+            <div className="glass overflow-hidden rounded-2xl">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-black/5 text-xs uppercase text-muted dark:border-white/10">
+                    <th className="px-5 py-3 font-medium">Paciente</th>
+                    <th className="px-5 py-3 font-medium">Programadas</th>
+                    <th className="px-5 py-3 font-medium">Completadas</th>
+                    <th className="px-5 py-3 font-medium">Reprogramadas</th>
+                    <th className="px-5 py-3 font-medium">Canceladas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((f) => (
+                    <tr key={f.paciente.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
+                      <td className="px-5 py-3 font-medium">
+                        <Link href={`/portal/pacientes/${f.paciente.id}`} className="hover:underline">
+                          {f.paciente.nombre}
+                        </Link>
+                      </td>
+                      <td className="px-5 py-3">{f.programadas}</td>
+                      <td className="px-5 py-3">{f.completadas}</td>
+                      <td className="px-5 py-3">{f.reprogramadas}</td>
+                      <td className="px-5 py-3">{f.canceladas}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-black/10 font-semibold dark:border-white/15">
+                    <td className="px-5 py-3">Total</td>
+                    <td className="px-5 py-3">{totales.programadas}</td>
+                    <td className="px-5 py-3">{totales.completadas}</td>
+                    <td className="px-5 py-3">{totales.reprogramadas}</td>
+                    <td className="px-5 py-3">{totales.canceladas}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-          ) : (
-            (() => {
-              const delPaciente = sesionesList
-                .filter((s) => s.paciente_id === pacienteIdParam)
-                .sort((a, b) => b.fecha.localeCompare(a.fecha));
-              const completadas = delPaciente.filter((s) => s.estado === "asistio");
-              const reprogramadas = delPaciente.filter((s) => s.estado === "reagendada");
-              const canceladas = delPaciente.filter((s) => s.estado === "no_asistio");
-
-              return (
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <ColumnaCategoria titulo="Completadas" sesiones={completadas} />
-                  <ColumnaCategoria titulo="Reprogramadas" sesiones={reprogramadas} />
-                  <ColumnaCategoria titulo="Canceladas" sesiones={canceladas} />
-                </div>
-              );
-            })()
-          )}
-        </>
+          );
+        })()
       )}
     </div>
   );

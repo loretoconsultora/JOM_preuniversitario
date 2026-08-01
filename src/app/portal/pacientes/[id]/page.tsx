@@ -47,7 +47,9 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
   const notasList = (notas ?? []) as PacienteNota[];
   const hoy = new Date().toISOString().slice(0, 10);
   const proximas = sesionesList.filter((s) => s.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const historial = sesionesList.filter((s) => s.fecha < hoy);
+  const historial = sesionesList.filter((s) => s.fecha < hoy); // ya viene ordenado desc por la consulta
+  const proximasVisibles = proximas.slice(0, 3);
+  const historialVisible = historial.slice(0, 3);
   const ultimaEvaluacion = evaluaciones?.[0]?.created_at ?? null;
   const disponible = evaluacionDisponible(pacienteData.fecha_alta, ultimaEvaluacion);
   const counts = contarPorEstado(sesionesList);
@@ -140,11 +142,11 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-3">
             <p className="text-muted text-xs font-medium uppercase">Próximas</p>
-            {proximas.length === 0 ? (
+            {proximasVisibles.length === 0 ? (
               <p className="text-muted text-sm">No hay sesiones agendadas.</p>
             ) : (
               <div className="glass flex flex-col gap-3 rounded-2xl p-4">
-                {proximas.map((s) => (
+                {proximasVisibles.map((s) => (
                   <div
                     key={s.id}
                     className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5"
@@ -163,15 +165,18 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
                 ))}
               </div>
             )}
+            {proximas.length > proximasVisibles.length && (
+              <p className="text-muted text-xs">+{proximas.length - proximasVisibles.length} sesión(es) más agendadas</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-3">
             <p className="text-muted text-xs font-medium uppercase">Historial</p>
-            {historial.length === 0 ? (
+            {historialVisible.length === 0 ? (
               <p className="text-muted text-sm">Todavía no hay sesiones pasadas.</p>
             ) : (
               <div className="glass flex flex-col gap-3 rounded-2xl p-4">
-                {historial.map((s) => (
+                {historialVisible.map((s) => (
                   <div
                     key={s.id}
                     className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5"
@@ -189,6 +194,9 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
                   </div>
                 ))}
               </div>
+            )}
+            {historial.length > historialVisible.length && (
+              <p className="text-muted text-xs">+{historial.length - historialVisible.length} sesión(es) más en el historial</p>
             )}
           </div>
         </div>
