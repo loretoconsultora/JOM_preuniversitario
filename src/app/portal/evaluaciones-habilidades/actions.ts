@@ -16,6 +16,27 @@ export async function crearHabilidad(formData: FormData) {
   revalidatePath("/portal/evaluaciones-habilidades");
 }
 
+export async function actualizarHabilidad(id: string, nombre: string) {
+  await requireTerapeuta();
+  const texto = nombre.trim();
+  if (!texto) throw new Error("El nombre no puede estar vacío.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("habilidades").update({ nombre: texto }).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/portal/evaluaciones-habilidades");
+}
+
+export async function eliminarHabilidad(id: string) {
+  await requireTerapeuta();
+  const supabase = await createClient();
+  const { error } = await supabase.from("habilidades").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/portal/evaluaciones-habilidades");
+}
+
 export async function crearEvaluacion(
   pacienteId: string,
   calificaciones: { habilidad_id: string; calificacion: number }[],

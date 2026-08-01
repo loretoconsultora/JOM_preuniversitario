@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Paciente, Habilidad, EvaluacionHabilidad, EvaluacionHabilidadCalificacion } from "@/types/database";
 import { evaluacionDisponible } from "@/lib/evaluaciones-habilidades";
 import { NuevaEvaluacionForm } from "@/components/nueva-evaluacion-form";
+import { HabilidadChip } from "@/components/habilidad-chip";
 import { crearHabilidad } from "./actions";
 
 export default async function EvaluacionesHabilidadesPage({
@@ -68,9 +69,7 @@ export default async function EvaluacionesHabilidadesPage({
         <div className="mb-3 flex flex-wrap gap-1.5">
           {habilidadesList.length === 0 && <p className="text-muted text-xs">Aún no agregas habilidades.</p>}
           {habilidadesList.map((h) => (
-            <span key={h.id} className="rounded-full bg-black/5 px-3 py-1 text-xs dark:bg-white/10">
-              {h.nombre}
-            </span>
+            <HabilidadChip key={h.id} habilidad={h} />
           ))}
         </div>
         <form action={crearHabilidad} className="flex items-center gap-2">
