@@ -3,11 +3,15 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Archive, ArchiveRestore, Sparkles } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Paciente, PacienteSesion, Profile } from "@/types/database";
+import type { Paciente, PacienteNota, PacienteSesion, Profile } from "@/types/database";
 import { evaluacionDisponible } from "@/lib/evaluaciones-habilidades";
+import { pacienteDesdeLabel } from "@/lib/paciente-fecha";
+import { contarPorEstado, emojisAlerta } from "@/lib/estado-sesion";
 import { NuevoAgendamientoForm } from "@/components/nuevo-agendamiento-form";
 import { SesionQuickActions } from "@/components/sesion-quick-actions";
-import { actualizarPaciente, archivarPaciente } from "../actions";
+import { MotivoChip } from "@/components/motivo-chip";
+import { NotasSection } from "@/components/notas-section";
+import { archivarPaciente } from "../actions";
 
 function formatFecha(fecha: string) {
   return new Date(`${fecha}T00:00:00`).toLocaleDateString("es-MX", {
@@ -26,23 +30,30 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
   if (!paciente) notFound();
   const pacienteData = paciente as Paciente;
 
-  const [{ data: sesiones }, { data: evaluaciones }, { data: alumnoVinculado }] = await Promise.all([
+  const [{ data: sesiones }, { data: evaluaciones }, { data: notas }, { data: alumnoVinculado }] = await Promise.all([
     supabase.from("paciente_sesiones").select("*").eq("paciente_id", id).order("fecha", { ascending: false }),
-    supabase.from("evaluaciones_habilidades").select("id, created_at").eq("paciente_id", id).order("created_at", { ascending: false }),
+    supabase
+      .from("evaluaciones_habilidades")
+      .select("id, created_at")
+      .eq("paciente_id", id)
+      .order("created_at", { ascending: false }),
+    supabase.from("paciente_notas").select("*").eq("paciente_id", id).order("created_at", { ascending: false }),
     pacienteData.alumno_id
       ? supabase.from("profiles").select("*").eq("id", pacienteData.alumno_id).single()
       : Promise.resolve({ data: null }),
   ]);
 
   const sesionesList = (sesiones ?? []) as PacienteSesion[];
+  const notasList = (notas ?? []) as PacienteNota[];
   const hoy = new Date().toISOString().slice(0, 10);
   const proximas = sesionesList.filter((s) => s.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const historial = sesionesList.filter((s) => s.fecha < hoy);
   const ultimaEvaluacion = evaluaciones?.[0]?.created_at ?? null;
   const disponible = evaluacionDisponible(pacienteData.fecha_alta, ultimaEvaluacion);
-
-  const inputClass =
-    "glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
+  const counts = contarPorEstado(sesionesList);
+  const emojis = emojisAlerta(counts);
+  const hayHistorialAsistencia = counts.completadas + counts.reprogramadas + counts.canceladas > 0;
+  const proximaSesion = proximas.find((s) => s.estado === "pendiente") ?? proximas[0] ?? null;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -52,12 +63,14 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
 
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{pacienteData.nombre}</h1>
-          <p className="text-muted text-sm">
-            Alta {formatFecha(pacienteData.fecha_alta)}
-            {(alumnoVinculado as Profile | null) && ` · Vinculado a ${(alumnoVinculado as Profile).nombre_completo}`}
-            {!pacienteData.activo && " · Archivado"}
-          </p>
+          <h1 className="text-2xl font-semibold">
+            {pacienteData.nombre}
+            {emojis && <span className="ml-1.5">{emojis}</span>}
+          </h1>
+          {(alumnoVinculado as Profile | null) && (
+            <p className="text-muted text-sm">Vinculado a {(alumnoVinculado as Profile).nombre_completo}</p>
+          )}
+          {!pacienteData.activo && <p className="text-muted text-sm">Archivado</p>}
         </div>
         <form action={archivarPaciente.bind(null, id, !pacienteData.activo)}>
           <button
@@ -80,82 +93,108 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
         </Link>
       )}
 
-      <div className="glass rounded-2xl p-5">
-        <p className="mb-3 text-sm font-semibold">Ficha</p>
-        <form action={actualizarPaciente.bind(null, id)} className="flex flex-col gap-3">
-          <input type="hidden" name="nombre" value={pacienteData.nombre} />
-          <label className="flex flex-col gap-1.5 text-xs">
-            Motivo de referencia
-            <textarea
-              name="motivo_referencia"
-              rows={2}
-              defaultValue={pacienteData.motivo_referencia ?? ""}
-              className={inputClass}
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 text-xs">
-            Nota
-            <textarea name="nota" rows={3} defaultValue={pacienteData.nota ?? ""} className={inputClass} />
-          </label>
-          <button
-            type="submit"
-            className="w-fit rounded-full bg-jom-ink px-4 py-2 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
-          >
-            Guardar cambios
-          </button>
-        </form>
+      <div className="glass flex flex-col gap-3 rounded-2xl p-5">
+        <p className="text-sm font-semibold">Ficha</p>
+
+        {pacienteData.motivos.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {pacienteData.motivos.map((m) => (
+              <MotivoChip key={m} nombre={m} />
+            ))}
+          </div>
+        )}
+
+        {hayHistorialAsistencia && (
+          <div className="flex flex-wrap gap-1.5 text-xs">
+            <span className="bg-jom-yellow/40 text-jom-ink rounded-full px-2.5 py-0.5 font-medium">
+              {counts.completadas} completadas
+            </span>
+            <span className="rounded-full bg-black/5 px-2.5 py-0.5 font-medium dark:bg-white/10">
+              {counts.reprogramadas} reprogramadas
+            </span>
+            <span className="bg-jom-pink/30 text-jom-ink rounded-full px-2.5 py-0.5 font-medium">
+              {counts.canceladas} canceladas
+            </span>
+          </div>
+        )}
+
+        <p className="text-muted text-sm">{pacienteDesdeLabel(pacienteData.fecha_alta, new Date())}</p>
+
+        <p className="text-sm">
+          {proximaSesion ? (
+            <>
+              Próxima sesión: {formatFecha(proximaSesion.fecha)}
+              {proximaSesion.hora && ` · ${proximaSesion.hora.slice(0, 5)}`}
+            </>
+          ) : (
+            <span className="text-muted">Sin próxima sesión agendada</span>
+          )}
+        </p>
       </div>
 
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold">Próximas sesiones</p>
+          <p className="text-sm font-semibold">Sesiones</p>
           <NuevoAgendamientoForm pacienteId={id} />
         </div>
-        {proximas.length === 0 ? (
-          <p className="text-muted text-sm">No hay sesiones agendadas.</p>
-        ) : (
-          <div className="glass flex flex-col gap-3 rounded-2xl p-5">
-            {proximas.map((s) => (
-              <div key={s.id} className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between">
-                <span className="text-sm font-medium">
-                  {formatFecha(s.fecha)}
-                  {s.hora && ` · ${s.hora.slice(0, 5)}`}
-                </span>
-                <SesionQuickActions
-                  sesionId={s.id}
-                  estadoInicial={s.estado}
-                  notaInicial={s.nota}
-                  accionable={s.fecha <= hoy}
-                />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-3">
+            <p className="text-muted text-xs font-medium uppercase">Próximas</p>
+            {proximas.length === 0 ? (
+              <p className="text-muted text-sm">No hay sesiones agendadas.</p>
+            ) : (
+              <div className="glass flex flex-col gap-3 rounded-2xl p-4">
+                {proximas.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5"
+                  >
+                    <span className="text-sm font-medium">
+                      {formatFecha(s.fecha)}
+                      {s.hora && ` · ${s.hora.slice(0, 5)}`}
+                    </span>
+                    <SesionQuickActions
+                      sesionId={s.id}
+                      estadoInicial={s.estado}
+                      notaInicial={s.nota}
+                      accionable={s.fecha <= hoy}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+
+          <div className="flex flex-col gap-3">
+            <p className="text-muted text-xs font-medium uppercase">Historial</p>
+            {historial.length === 0 ? (
+              <p className="text-muted text-sm">Todavía no hay sesiones pasadas.</p>
+            ) : (
+              <div className="glass flex flex-col gap-3 rounded-2xl p-4">
+                {historial.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5"
+                  >
+                    <span className="text-sm font-medium">
+                      {formatFecha(s.fecha)}
+                      {s.hora && ` · ${s.hora.slice(0, 5)}`}
+                    </span>
+                    <SesionQuickActions
+                      sesionId={s.id}
+                      estadoInicial={s.estado}
+                      notaInicial={s.nota}
+                      accionable={s.fecha <= hoy}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <p className="text-sm font-semibold">Historial</p>
-        {historial.length === 0 ? (
-          <p className="text-muted text-sm">Todavía no hay sesiones pasadas.</p>
-        ) : (
-          <div className="glass flex flex-col gap-3 rounded-2xl p-5">
-            {historial.map((s) => (
-              <div key={s.id} className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between">
-                <span className="text-sm font-medium">
-                  {formatFecha(s.fecha)}
-                  {s.hora && ` · ${s.hora.slice(0, 5)}`}
-                </span>
-                <SesionQuickActions
-                  sesionId={s.id}
-                  estadoInicial={s.estado}
-                  notaInicial={s.nota}
-                  accionable={s.fecha <= hoy}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <NotasSection pacienteId={id} notas={notasList} />
     </div>
   );
 }

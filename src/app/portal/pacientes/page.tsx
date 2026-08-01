@@ -2,25 +2,38 @@ import Link from "next/link";
 import { Plus, ChevronRight, Sparkles } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Paciente } from "@/types/database";
+import type { Paciente, EstadoSesion } from "@/types/database";
 import { evaluacionDisponible } from "@/lib/evaluaciones-habilidades";
+import { pacienteDesdeLabel } from "@/lib/paciente-fecha";
+import { contarPorEstado, emojisAlerta } from "@/lib/estado-sesion";
+import { MotivoChip } from "@/components/motivo-chip";
 
 export default async function PacientesPage() {
   await requireTerapeuta();
   const supabase = await createClient();
 
-  const [{ data: pacientes }, { data: evaluaciones }] = await Promise.all([
+  const [{ data: pacientes }, { data: evaluaciones }, { data: sesiones }] = await Promise.all([
     supabase.from("pacientes").select("*").order("nombre"),
     supabase.from("evaluaciones_habilidades").select("paciente_id, created_at"),
+    supabase.from("paciente_sesiones").select("paciente_id, estado"),
   ]);
 
   const pacientesList = (pacientes ?? []) as Paciente[];
   const evaluacionesList = (evaluaciones ?? []) as { paciente_id: string; created_at: string }[];
+  const sesionesList = (sesiones ?? []) as { paciente_id: string; estado: EstadoSesion }[];
+  const ahora = new Date();
 
   const ultimaEvalPorPaciente = new Map<string, string>();
   for (const e of evaluacionesList) {
     const actual = ultimaEvalPorPaciente.get(e.paciente_id);
     if (!actual || e.created_at > actual) ultimaEvalPorPaciente.set(e.paciente_id, e.created_at);
+  }
+
+  const sesionesPorPaciente = new Map<string, { estado: EstadoSesion }[]>();
+  for (const s of sesionesList) {
+    const list = sesionesPorPaciente.get(s.paciente_id) ?? [];
+    list.push(s);
+    sesionesPorPaciente.set(s.paciente_id, list);
   }
 
   const activos = pacientesList.filter((p) => p.activo);
@@ -49,6 +62,8 @@ export default async function PacientesPage() {
         <div className="glass overflow-hidden rounded-2xl">
           {activos.map((p, i) => {
             const disponible = evaluacionDisponible(p.fecha_alta, ultimaEvalPorPaciente.get(p.id) ?? null);
+            const counts = contarPorEstado(sesionesPorPaciente.get(p.id) ?? []);
+            const emojis = emojisAlerta(counts);
             return (
               <Link
                 key={p.id}
@@ -58,9 +73,17 @@ export default async function PacientesPage() {
                 }`}
               >
                 <div className="min-w-0">
-                  <span className="font-medium">{p.nombre}</span>
-                  {p.motivo_referencia && (
-                    <p className="text-muted mt-0.5 max-w-md truncate text-xs">{p.motivo_referencia}</p>
+                  <span className="font-medium">
+                    {p.nombre}
+                    {emojis && <span className="ml-1.5">{emojis}</span>}
+                  </span>
+                  <p className="text-muted mt-0.5 text-xs">{pacienteDesdeLabel(p.fecha_alta, ahora)}</p>
+                  {p.motivos.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {p.motivos.map((m) => (
+                        <MotivoChip key={m} nombre={m} />
+                      ))}
+                    </div>
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">

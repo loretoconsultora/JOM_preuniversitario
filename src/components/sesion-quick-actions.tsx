@@ -5,20 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, X, CalendarClock, Pencil } from "lucide-react";
 import { marcarAsistencia, guardarNotaSesion, reagendarSesion } from "@/app/portal/pacientes/actions";
 import type { EstadoSesion } from "@/types/database";
-
-const ESTADO_LABEL: Record<EstadoSesion, string> = {
-  pendiente: "Pendiente",
-  asistio: "Asistió",
-  no_asistio: "No asistió",
-  reagendada: "Reagendada",
-};
-
-const ESTADO_CLASS: Record<EstadoSesion, string> = {
-  pendiente: "bg-black/5 dark:bg-white/10",
-  asistio: "bg-jom-yellow/40 text-jom-ink",
-  no_asistio: "bg-jom-pink/30 text-jom-ink",
-  reagendada: "bg-black/5 dark:bg-white/10 text-muted",
-};
+import { ESTADO_LABEL, ESTADO_CLASS } from "@/lib/estado-sesion";
 
 export function SesionQuickActions({
   sesionId,

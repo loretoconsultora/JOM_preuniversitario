@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/database";
+import { MotivosPicker } from "@/components/motivos-picker";
 import { crearPaciente } from "../actions";
 
 export default async function NuevoPacientePage() {
@@ -45,30 +46,24 @@ export default async function NuevoPacientePage() {
             </label>
           )}
 
-          <label className="flex flex-col gap-1.5 text-sm">
-            Motivo de referencia
-            <textarea
-              name="motivo_referencia"
-              rows={2}
-              placeholder="¿Por qué llega a acompañamiento?"
-              className={inputClass}
-            />
-          </label>
+          <div className="flex flex-col gap-1.5 text-sm">
+            Motivos de referencia
+            <MotivosPicker name="motivos" />
+          </div>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            Nota inicial (opcional)
-            <textarea name="nota" rows={3} className={inputClass} />
-          </label>
-
-          <label className="flex flex-col gap-1.5 text-sm">
-            Fecha de alta
+            ¿Desde cuándo es paciente?
             <input
-              type="date"
+              type="month"
               name="fecha_alta"
-              defaultValue={new Date().toISOString().slice(0, 10)}
+              defaultValue={new Date().toISOString().slice(0, 7)}
               className={inputClass}
             />
-            <span className="text-muted text-xs">A partir de esta fecha se cuenta el ciclo de evaluaciones mensuales.</span>
+            <span className="text-muted text-xs">
+              Si es del mismo mes actual se marca como &quot;Nuevo paciente&quot;. También sirve para pacientes que
+              ya llevaban terapia antes de usar esta plataforma. A partir de aquí se cuenta el ciclo de evaluaciones
+              mensuales.
+            </span>
           </label>
 
           <button

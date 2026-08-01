@@ -171,10 +171,17 @@ export type Paciente = {
   terapeuta_id: string;
   alumno_id: string | null;
   nombre: string;
-  motivo_referencia: string | null;
-  nota: string | null;
+  motivos: string[];
   fecha_alta: string;
   activo: boolean;
+  created_at: string;
+};
+
+export type PacienteNota = {
+  id: string;
+  paciente_id: string;
+  contenido: string;
+  creado_por: string;
   created_at: string;
 };
 

@@ -10,10 +10,10 @@ export async function crearPaciente(formData: FormData) {
 
   const nombre = String(formData.get("nombre") || "").trim();
   if (!nombre) throw new Error("El nombre es obligatorio.");
-  const motivo_referencia = String(formData.get("motivo_referencia") || "").trim() || null;
-  const nota = String(formData.get("nota") || "").trim() || null;
+  const motivos = formData.getAll("motivos").map((m) => String(m).trim()).filter(Boolean);
   const alumno_id = String(formData.get("alumno_id") || "").trim() || null;
-  const fecha_alta = String(formData.get("fecha_alta") || "").trim();
+  const mesAlta = String(formData.get("fecha_alta") || "").trim();
+  const fecha_alta = mesAlta ? `${mesAlta}-01` : undefined;
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -22,8 +22,7 @@ export async function crearPaciente(formData: FormData) {
       terapeuta_id: profile.id,
       alumno_id,
       nombre,
-      motivo_referencia,
-      nota,
+      motivos,
       ...(fecha_alta ? { fecha_alta } : {}),
     })
     .select("id")
@@ -34,20 +33,18 @@ export async function crearPaciente(formData: FormData) {
   redirect(`/portal/pacientes/${data.id}`);
 }
 
-export async function actualizarPaciente(id: string, formData: FormData) {
-  await requireTerapeuta();
-
-  const nombre = String(formData.get("nombre") || "").trim();
-  if (!nombre) throw new Error("El nombre es obligatorio.");
-  const motivo_referencia = String(formData.get("motivo_referencia") || "").trim() || null;
-  const nota = String(formData.get("nota") || "").trim() || null;
+export async function agregarNotaPaciente(pacienteId: string, contenido: string) {
+  const profile = await requireTerapeuta();
+  const texto = contenido.trim();
+  if (!texto) throw new Error("Escribe una nota.");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("pacientes").update({ nombre, motivo_referencia, nota }).eq("id", id);
+  const { error } = await supabase
+    .from("paciente_notas")
+    .insert({ paciente_id: pacienteId, contenido: texto, creado_por: profile.id });
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/portal/pacientes/${id}`);
-  revalidatePath("/portal/pacientes");
+  revalidatePath(`/portal/pacientes/${pacienteId}`);
 }
 
 export async function archivarPaciente(id: string, activo: boolean) {
