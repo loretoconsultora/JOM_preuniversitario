@@ -166,12 +166,12 @@ export default async function EvaluacionesHabilidadesPage({
                             return c?.calificacion ?? null;
                           });
                           const conDato = puntajes.filter((v): v is number => v !== null);
-                          const primero = conDato[0];
                           const ultimo = conDato[conDato.length - 1];
+                          const promedio = conDato.reduce((a, b) => a + b, 0) / conDato.length;
                           const tendencia =
-                            conDato.length >= 2 ? (ultimo > primero ? "up" : ultimo < primero ? "down" : "same") : null;
+                            conDato.length >= 2 ? (ultimo > promedio ? "up" : ultimo < promedio ? "down" : "same") : null;
                           const cambioPct =
-                            conDato.length >= 2 ? Math.round(((ultimo - primero) / primero) * 100) : null;
+                            conDato.length >= 2 ? Math.round(((ultimo - promedio) / promedio) * 100) : null;
                           return (
                             <tr key={h.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
                               <td className="py-2 pr-3 font-medium">{h.nombre}</td>
