@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, ChevronRight, Sparkles, Trash2 } from "lucide-react";
+import { Plus, ChevronRight, Sparkles, Trash2, User } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Paciente, EstadoSesion } from "@/types/database";
@@ -24,6 +24,13 @@ export default async function PacientesPage() {
   const evaluacionesList = (evaluaciones ?? []) as { paciente_id: string; created_at: string }[];
   const sesionesList = (sesiones ?? []) as { paciente_id: string; estado: EstadoSesion }[];
   const ahora = new Date();
+
+  const alumnoIds = pacientesList.map((p) => p.alumno_id).filter((id): id is string => Boolean(id));
+  const { data: alumnosVinculados } =
+    alumnoIds.length > 0
+      ? await supabase.from("profiles").select("id, avatar_url").in("id", alumnoIds)
+      : { data: [] as { id: string; avatar_url: string | null }[] };
+  const avatarPorAlumno = new Map((alumnosVinculados ?? []).map((a) => [a.id, a.avatar_url]));
 
   const ultimaEvalPorPaciente = new Map<string, string>();
   for (const e of evaluacionesList) {
@@ -66,6 +73,7 @@ export default async function PacientesPage() {
             const disponible = evaluacionDisponible(p.fecha_alta, ultimaEvalPorPaciente.get(p.id) ?? null);
             const counts = contarPorEstado(sesionesPorPaciente.get(p.id) ?? []);
             const emojis = emojisAlerta(counts);
+            const avatarUrl = p.alumno_id ? (avatarPorAlumno.get(p.alumno_id) ?? null) : null;
             return (
               <Link
                 key={p.id}
@@ -74,19 +82,31 @@ export default async function PacientesPage() {
                   i !== 0 ? "border-t border-black/5 dark:border-white/5" : ""
                 }`}
               >
-                <div className="min-w-0">
-                  <span className="font-medium">
-                    {p.nombre}
-                    {emojis && <span className="ml-1.5">{emojis}</span>}
-                  </span>
-                  <p className="text-muted mt-0.5 text-xs">{pacienteDesdeLabel(p.fecha_alta, ahora)}</p>
-                  {p.motivos.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {p.motivos.map((m) => (
-                        <MotivoChip key={m} nombre={m} />
-                      ))}
-                    </div>
-                  )}
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full">
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- avatar subido por el alumno, no un asset estático
+                      <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="bg-jom-pink/30 flex h-full w-full items-center justify-center">
+                        <User size={15} className="text-jom-ink/60" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-medium">
+                      {p.nombre}
+                      {emojis && <span className="ml-1.5">{emojis}</span>}
+                    </span>
+                    <p className="text-muted mt-0.5 text-xs">{pacienteDesdeLabel(p.fecha_alta, ahora)}</p>
+                    {p.motivos.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {p.motivos.map((m) => (
+                          <MotivoChip key={m} nombre={m} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   {disponible && (

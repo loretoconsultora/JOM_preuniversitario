@@ -36,7 +36,7 @@ export function NotasSection({
       contenido: n.contenido,
       fechaOrden: n.created_at,
       fechaLabel: formatFecha(n.created_at),
-      deSesion: false,
+      deSesion: false as const,
     })),
     ...notasDeSesion.map((n) => ({
       id: n.id,
@@ -63,7 +63,7 @@ export function NotasSection({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm font-semibold">Notas</p>
+      <p className="text-sm font-semibold">Notas Generales</p>
 
       <div className="glass flex flex-col gap-2 rounded-2xl p-4">
         <textarea
@@ -99,8 +99,7 @@ export function NotasSection({
               >
                 <p className={`text-sm ${abierta ? "whitespace-pre-line" : "truncate"}`}>{n.contenido}</p>
                 <span className="text-muted text-xs">
-                  {n.fechaLabel}
-                  {n.deSesion && " · Nota de sesión"}
+                  {n.fechaLabel} · {n.deSesion ? "Nota de sesión" : "Nota general"}
                 </span>
               </button>
             );

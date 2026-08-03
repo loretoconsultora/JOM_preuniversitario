@@ -4,6 +4,7 @@ import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/database";
 import { MotivosPicker } from "@/components/motivos-picker";
+import { FechaAltaInput } from "@/components/fecha-alta-input";
 import { crearPaciente } from "../actions";
 
 export default async function NuevoPacientePage() {
@@ -51,20 +52,15 @@ export default async function NuevoPacientePage() {
             <MotivosPicker name="motivos" />
           </div>
 
-          <label className="flex flex-col gap-1.5 text-sm">
+          <div className="flex flex-col gap-1.5 text-sm">
             ¿Desde cuándo es paciente?
-            <input
-              type="month"
-              name="fecha_alta"
-              defaultValue={new Date().toISOString().slice(0, 7)}
-              className={inputClass}
-            />
+            <FechaAltaInput name="fecha_alta" className={inputClass} />
             <span className="text-muted text-xs">
-              Si es del mismo mes actual se marca como &quot;Nuevo paciente&quot;. También sirve para pacientes que
-              ya llevaban terapia antes de usar esta plataforma. A partir de aquí se cuenta el ciclo de evaluaciones
-              mensuales.
+              El botón &quot;Nuevo paciente&quot; deja el mes actual (se marcará como &quot;Nuevo paciente&quot; en el
+              listado). También puedes elegir un mes anterior para pacientes que ya llevaban terapia antes de usar
+              esta plataforma. A partir de aquí se cuenta el ciclo de evaluaciones mensuales.
             </span>
-          </label>
+          </div>
 
           <button
             type="submit"
