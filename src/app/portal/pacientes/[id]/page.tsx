@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Archive, ArchiveRestore, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, Sparkles, Trash2, User } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Paciente, PacienteNota, PacienteSesion, Profile } from "@/types/database";
@@ -57,6 +57,7 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
   const emojis = emojisAlerta(counts);
   const hayHistorialAsistencia = counts.completadas + counts.reprogramadas + counts.canceladas > 0;
   const proximaSesion = proximas.find((s) => s.estado === "pendiente") ?? proximas[0] ?? null;
+  const alumnoPerfil = alumnoVinculado as Profile | null;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -65,15 +66,27 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
       </Link>
 
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            {pacienteData.nombre}
-            {emojis && <span className="ml-1.5">{emojis}</span>}
-          </h1>
-          {(alumnoVinculado as Profile | null) && (
-            <p className="text-muted text-sm">Vinculado a {(alumnoVinculado as Profile).nombre_completo}</p>
+        <div className="flex items-center gap-3">
+          {alumnoPerfil && (
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
+              {alumnoPerfil.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- avatar subido por el alumno, no un asset estático
+                <img src={alumnoPerfil.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="bg-jom-pink/30 flex h-full w-full items-center justify-center">
+                  <User size={20} className="text-jom-ink/60" />
+                </div>
+              )}
+            </div>
           )}
-          {!pacienteData.activo && <p className="text-muted text-sm">Archivado</p>}
+          <div>
+            <h1 className="text-2xl font-semibold">
+              {pacienteData.nombre}
+              {emojis && <span className="ml-1.5">{emojis}</span>}
+            </h1>
+            {alumnoPerfil && <p className="text-muted text-sm">Vinculado a {alumnoPerfil.nombre_completo}</p>}
+            {!pacienteData.activo && <p className="text-muted text-sm">Archivado</p>}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <form action={archivarPaciente.bind(null, id, !pacienteData.activo)}>
