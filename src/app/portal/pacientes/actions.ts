@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireTerapeuta, requireTerapeutaODirectora } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { PACIENTE_DOCUMENTOS_BUCKET } from "@/lib/storage";
 import type { AsistenciaSaludTipo } from "@/types/database";
 
 export async function crearPaciente(formData: FormData) {
@@ -71,6 +72,41 @@ export async function guardarPacienteSalud(
 
   revalidatePath(`/portal/pacientes/${pacienteId}`);
   revalidatePath("/portal/seguimiento-salud");
+}
+
+export async function registrarDocumentoPaciente(
+  pacienteId: string,
+  archivo: { storage_path: string; nombre_archivo: string; tipo_mime: string | null; tamano_bytes: number }
+) {
+  const profile = await requireTerapeuta();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("paciente_documentos")
+    .insert({ paciente_id: pacienteId, ...archivo, creado_por: profile.id });
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/portal/pacientes/${pacienteId}`);
+}
+
+export async function eliminarDocumentoPaciente(id: string) {
+  await requireTerapeuta();
+  const supabase = await createClient();
+
+  const { data: documento } = await supabase
+    .from("paciente_documentos")
+    .select("storage_path, paciente_id")
+    .eq("id", id)
+    .single();
+
+  if (documento?.storage_path) {
+    await supabase.storage.from(PACIENTE_DOCUMENTOS_BUCKET).remove([documento.storage_path]);
+  }
+
+  const { error } = await supabase.from("paciente_documentos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
+  if (documento?.paciente_id) revalidatePath(`/portal/pacientes/${documento.paciente_id}`);
 }
 
 export async function archivarPaciente(id: string, activo: boolean) {

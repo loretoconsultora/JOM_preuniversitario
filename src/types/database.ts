@@ -207,6 +207,17 @@ export type PacienteNota = {
   created_at: string;
 };
 
+export type PacienteDocumento = {
+  id: string;
+  paciente_id: string;
+  storage_path: string;
+  nombre_archivo: string;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  creado_por: string;
+  created_at: string;
+};
+
 export type AsistenciaSaludTipo = "nutricion" | "entrenamiento" | "fisioterapia" | "otro";
 
 export type PacienteSalud = {
