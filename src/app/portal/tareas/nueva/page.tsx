@@ -2,18 +2,18 @@ import Link from "next/link";
 import { ArrowLeft, CalendarDays, Paperclip } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Materia, Tema } from "@/types/database";
+import { materiasGestionables } from "@/lib/materias-gestionables";
+import type { Tema } from "@/types/database";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { crearTarea } from "../actions";
 
 export default async function NuevaTareaPage() {
-  await requireDocente();
+  const profile = await requireDocente();
   const supabase = await createClient();
-  const [{ data: materias }, { data: temas }] = await Promise.all([
-    supabase.from("materias").select("*").order("nombre"),
+  const [materiasList, { data: temas }] = await Promise.all([
+    materiasGestionables(supabase, profile.id),
     supabase.from("temas").select("*").order("orden"),
   ]);
-  const materiasList = (materias ?? []) as Materia[];
   const temasList = (temas ?? []) as Tema[];
 
   const inputClass =

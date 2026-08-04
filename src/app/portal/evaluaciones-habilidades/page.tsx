@@ -85,7 +85,7 @@ export default async function EvaluacionesHabilidadesPage({
         </p>
       </div>
 
-      <div className="glass rounded-2xl p-5">
+      <div className="glass rounded-2xl p-5" style={{ background: "color-mix(in srgb, #b8e0c8 40%, var(--surface))" }}>
         <p className="mb-3 text-sm font-semibold">Catálogo de habilidades</p>
         <div className="mb-3 flex flex-wrap gap-1.5">
           {habilidadesList.length === 0 && <p className="text-muted text-xs">Aún no agregas habilidades.</p>}

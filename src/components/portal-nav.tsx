@@ -23,17 +23,33 @@ const ALL_ITEMS = [
   { href: "/portal/examenes", label: "Exámenes", icon: FileQuestion, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/calificaciones", label: "Calificaciones", icon: GraduationCap, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/recursos", label: "Recursos", icon: FolderOpen, roles: ["alumno", "docente", "directora"] },
-  { href: "/portal/alumnos", label: "Alumnos", icon: Users, roles: ["docente", "directora"] },
-  { href: "/portal/docentes", label: "Docentes", icon: Presentation, roles: ["docente", "directora"] },
+  {
+    href: "/portal/alumnos",
+    label: "Alumnos",
+    icon: Users,
+    roles: ["docente", "directora"],
+    ocultoSiAcotado: true,
+  },
+  {
+    href: "/portal/docentes",
+    label: "Docentes",
+    icon: Presentation,
+    roles: ["docente", "directora"],
+    ocultoSiAcotado: true,
+  },
   { href: "/portal/pacientes", label: "Pacientes", icon: HeartHandshake, roles: ["terapeuta"] },
   { href: "/portal/asistencia", label: "Asistencia", icon: CalendarCheck, roles: ["terapeuta"] },
   { href: "/portal/evaluaciones-habilidades", label: "Evaluaciones", icon: ClipboardCheck, roles: ["terapeuta"] },
   { href: "/portal/seguimiento-salud", label: "Seguimiento de salud", icon: HeartPulse, roles: ["directora"] },
 ] as const;
 
-export function PortalNav({ role }: { role: Role }) {
+export function PortalNav({ role, acotado = false }: { role: Role; acotado?: boolean }) {
   const pathname = usePathname();
-  const items = ALL_ITEMS.filter((item) => (item.roles as readonly string[]).includes(role));
+  const items = ALL_ITEMS.filter(
+    (item) =>
+      (item.roles as readonly string[]).includes(role) &&
+      !(acotado && "ocultoSiAcotado" in item && item.ocultoSiAcotado)
+  );
 
   return (
     <nav className="flex items-center gap-1">

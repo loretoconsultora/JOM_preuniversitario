@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { User } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { esDocenteAcotado } from "@/lib/materias-gestionables";
 import { JomLogo } from "@/components/jom-logo";
 import { PortalNav } from "@/components/portal-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -19,6 +21,8 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const profile = await requireProfile();
+  const acotado =
+    profile.role === "docente" ? await esDocenteAcotado(await createClient(), profile.id) : false;
 
   return (
     <div className="min-h-screen">
@@ -27,7 +31,7 @@ export default async function PortalLayout({
           <div className="flex min-w-0 items-center gap-6">
             <JomLogo className="h-9 w-auto shrink-0" />
             <div className="min-w-0 overflow-x-auto">
-              <PortalNav role={profile.role} />
+              <PortalNav role={profile.role} acotado={acotado} />
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">

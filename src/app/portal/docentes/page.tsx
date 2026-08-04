@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Plus, KeyRound, GraduationCap } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/types/database";
+import type { Materia, Profile } from "@/types/database";
+import { DocenteMateriasEditor } from "@/components/docente-materias-editor";
 
 export default async function DocentesPage({
   searchParams,
@@ -13,12 +14,19 @@ export default async function DocentesPage({
   const { nuevo_correo, nueva_password } = await searchParams;
   const supabase = await createClient();
 
-  const { data: docentes } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "docente")
-    .order("nombre_completo");
+  const [{ data: docentes }, { data: materias }, { data: asignaciones }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("role", "docente").order("nombre_completo"),
+    supabase.from("materias").select("*").order("nombre"),
+    supabase.from("materia_docentes").select("materia_id, docente_id"),
+  ]);
   const docentesList = (docentes ?? []) as Profile[];
+  const materiasList = (materias ?? []) as Materia[];
+  const asignacionesPorDocente = new Map<string, string[]>();
+  for (const a of (asignaciones ?? []) as { materia_id: string; docente_id: string }[]) {
+    const lista = asignacionesPorDocente.get(a.docente_id) ?? [];
+    lista.push(a.materia_id);
+    asignacionesPorDocente.set(a.docente_id, lista);
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,8 +63,8 @@ export default async function DocentesPage({
       )}
 
       <p className="glass rounded-2xl p-4 text-xs text-muted">
-        El rol docente tiene acceso completo a la plataforma: puede crear/eliminar cuentas y editar el temario,
-        tareas, exámenes y recursos de todas las materias, no solo de un taller específico.
+        Un docente sin materias asignadas tiene acceso completo a la plataforma (temario, tareas, exámenes y
+        recursos de todas las materias). Si le asignas una o más materias, queda acotado solo a esas.
       </p>
 
       {docentesList.length === 0 ? (
@@ -66,15 +74,23 @@ export default async function DocentesPage({
           {docentesList.map((docente, i) => (
             <div
               key={docente.id}
-              className={`flex items-center gap-3 px-5 py-4 ${
+              className={`flex flex-col gap-2 px-5 py-4 ${
                 i !== 0 ? "border-t border-black/5 dark:border-white/5" : ""
               }`}
             >
-              <GraduationCap size={16} className="text-muted shrink-0" />
-              <span className="font-medium">
-                {docente.nombre_completo}
-                {docente.id === profile.id && <span className="text-muted font-normal"> (tú)</span>}
-              </span>
+              <div className="flex items-center gap-3">
+                <GraduationCap size={16} className="text-muted shrink-0" />
+                <span className="font-medium">
+                  {docente.nombre_completo}
+                  {docente.id === profile.id && <span className="text-muted font-normal"> (tú)</span>}
+                </span>
+              </div>
+              <DocenteMateriasEditor
+                docenteId={docente.id}
+                materias={materiasList}
+                asignadasIniciales={asignacionesPorDocente.get(docente.id) ?? []}
+                editable={profile.role === "docente"}
+              />
             </div>
           ))}
         </div>

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Materia, Profile, Tarea } from "@/types/database";
+import { materiasGestionables } from "@/lib/materias-gestionables";
+import type { Profile, Tarea } from "@/types/database";
 import { crearCalificacion } from "../actions";
 
 export default async function NuevaCalificacionPage({
@@ -10,17 +11,17 @@ export default async function NuevaCalificacionPage({
 }: {
   searchParams: Promise<{ tarea_id?: string; alumno_id?: string }>;
 }) {
-  await requireDocente();
+  const profile = await requireDocente();
   const { tarea_id: tareaIdPreseleccionada, alumno_id: alumnoIdPreseleccionado } = await searchParams;
   const supabase = await createClient();
-  const [{ data: materias }, { data: alumnos }, { data: tareas }] = await Promise.all([
-    supabase.from("materias").select("*").order("nombre"),
+  const [materiasList, { data: alumnos }, { data: tareas }] = await Promise.all([
+    materiasGestionables(supabase, profile.id),
     supabase.from("profiles").select("*").eq("role", "alumno").order("nombre_completo"),
     supabase.from("tareas").select("*").order("created_at", { ascending: false }),
   ]);
-  const materiasList = (materias ?? []) as Materia[];
   const alumnosList = (alumnos ?? []) as Profile[];
-  const tareasList = (tareas ?? []) as Tarea[];
+  const materiaIds = new Set(materiasList.map((m) => m.id));
+  const tareasList = ((tareas ?? []) as Tarea[]).filter((t) => materiaIds.has(t.materia_id));
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));
 
   return (

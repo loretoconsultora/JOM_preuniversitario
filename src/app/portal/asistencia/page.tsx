@@ -173,7 +173,10 @@ export default async function AsistenciaPage({
 
       <div className="flex flex-col gap-3">
         <p className="text-sm font-semibold">Resumen del mes ({mesLabelCapitalizado})</p>
-        <div className="glass grid grid-cols-2 gap-3 rounded-2xl p-5 sm:grid-cols-4">
+        <div
+          className="glass grid grid-cols-2 gap-3 rounded-2xl p-5 sm:grid-cols-4"
+          style={{ background: "color-mix(in srgb, #b8e0c8 40%, var(--surface))" }}
+        >
           <div>
             <p className="text-muted text-xs uppercase">Programadas</p>
             <p className="text-xl font-semibold">{totalesMes.programadas}</p>

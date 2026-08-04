@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import type { Materia } from "@/types/database";
 import { crearDocente } from "../actions";
 
 export default async function NuevoDocentePage() {
   await requireDocente();
+  const supabase = await createClient();
+  const { data: materias } = await supabase.from("materias").select("*").order("nombre");
+  const materiasList = (materias ?? []) as Materia[];
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6">
@@ -51,6 +56,25 @@ export default async function NuevoDocentePage() {
               Mínimo 6 caracteres. El docente podrá usarla para iniciar sesión de inmediato.
             </span>
           </label>
+
+          {materiasList.length > 0 && (
+            <div className="flex flex-col gap-1.5 text-sm">
+              Materias asignadas (opcional)
+              <div className="glass flex flex-col gap-1.5 rounded-xl p-3">
+                {materiasList.map((m) => (
+                  <label key={m.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="materia_ids" value={m.id} className="h-4 w-4 rounded accent-jom-ink" />
+                    {m.nombre}
+                  </label>
+                ))}
+              </div>
+              <span className="text-muted text-xs">
+                Si eliges una o más materias, esta cuenta queda acotada solo a ellas (no podrá crear ni editar
+                contenido de otras materias). Si no eliges ninguna, la cuenta tiene acceso completo, igual que la
+                tuya.
+              </span>
+            </div>
+          )}
 
           <button
             type="submit"

@@ -2,14 +2,13 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Materia } from "@/types/database";
+import { materiasGestionables } from "@/lib/materias-gestionables";
 import { RecursoForm } from "@/components/recurso-form";
 
 export default async function NuevoRecursoPage() {
-  await requireDocente();
+  const profile = await requireDocente();
   const supabase = await createClient();
-  const { data: materias } = await supabase.from("materias").select("*").order("nombre");
-  const materiasList = (materias ?? []) as Materia[];
+  const materiasList = await materiasGestionables(supabase, profile.id);
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6">
