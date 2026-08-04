@@ -10,6 +10,7 @@ import {
   FolderOpen,
   BookOpen,
   HeartHandshake,
+  HeartPulse,
   CalendarCheck,
   ClipboardCheck,
   Presentation,
@@ -27,6 +28,7 @@ const ALL_ITEMS = [
   { href: "/portal/pacientes", label: "Pacientes", icon: HeartHandshake, roles: ["terapeuta"] },
   { href: "/portal/asistencia", label: "Asistencia", icon: CalendarCheck, roles: ["terapeuta"] },
   { href: "/portal/evaluaciones-habilidades", label: "Evaluaciones", icon: ClipboardCheck, roles: ["terapeuta"] },
+  { href: "/portal/seguimiento-salud", label: "Seguimiento de salud", icon: HeartPulse, roles: ["directora"] },
 ] as const;
 
 export function PortalNav({ role }: { role: Role }) {

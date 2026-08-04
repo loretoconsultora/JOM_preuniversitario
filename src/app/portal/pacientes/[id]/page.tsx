@@ -3,14 +3,16 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Archive, ArchiveRestore, Sparkles, Trash2, User } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Paciente, PacienteNota, PacienteSesion, Profile } from "@/types/database";
+import type { Paciente, PacienteNota, PacienteSalud, PacienteSesion, Profile } from "@/types/database";
 import { evaluacionDisponible } from "@/lib/evaluaciones-habilidades";
 import { pacienteDesdeLabel } from "@/lib/paciente-fecha";
 import { contarPorEstado, emojisAlerta } from "@/lib/estado-sesion";
+import { medicacionLabel, asistenciaSaludLabel } from "@/lib/paciente-salud";
 import { NuevoAgendamientoForm } from "@/components/nuevo-agendamiento-form";
 import { SesionQuickActions } from "@/components/sesion-quick-actions";
 import { MotivoChip } from "@/components/motivo-chip";
 import { NotasSection } from "@/components/notas-section";
+import { PacienteSaludForm } from "@/components/paciente-salud-form";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { archivarPaciente, eliminarPaciente } from "../actions";
 
@@ -31,21 +33,24 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
   if (!paciente) notFound();
   const pacienteData = paciente as Paciente;
 
-  const [{ data: sesiones }, { data: evaluaciones }, { data: notas }, { data: alumnoVinculado }] = await Promise.all([
-    supabase.from("paciente_sesiones").select("*").eq("paciente_id", id).order("fecha", { ascending: false }),
-    supabase
-      .from("evaluaciones_habilidades")
-      .select("id, created_at")
-      .eq("paciente_id", id)
-      .order("created_at", { ascending: false }),
-    supabase.from("paciente_notas").select("*").eq("paciente_id", id).order("created_at", { ascending: false }),
-    pacienteData.alumno_id
-      ? supabase.from("profiles").select("*").eq("id", pacienteData.alumno_id).single()
-      : Promise.resolve({ data: null }),
-  ]);
+  const [{ data: sesiones }, { data: evaluaciones }, { data: notas }, { data: alumnoVinculado }, { data: salud }] =
+    await Promise.all([
+      supabase.from("paciente_sesiones").select("*").eq("paciente_id", id).order("fecha", { ascending: false }),
+      supabase
+        .from("evaluaciones_habilidades")
+        .select("id, created_at")
+        .eq("paciente_id", id)
+        .order("created_at", { ascending: false }),
+      supabase.from("paciente_notas").select("*").eq("paciente_id", id).order("created_at", { ascending: false }),
+      pacienteData.alumno_id
+        ? supabase.from("profiles").select("*").eq("id", pacienteData.alumno_id).single()
+        : Promise.resolve({ data: null }),
+      supabase.from("paciente_salud").select("*").eq("paciente_id", id).maybeSingle(),
+    ]);
 
   const sesionesList = (sesiones ?? []) as PacienteSesion[];
   const notasList = (notas ?? []) as PacienteNota[];
+  const saludData = (salud ?? null) as PacienteSalud | null;
   const hoy = new Date().toISOString().slice(0, 10);
   const proximas = sesionesList.filter((s) => s.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const historial = sesionesList.filter((s) => s.fecha < hoy); // ya viene ordenado desc por la consulta
@@ -134,6 +139,9 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
           </div>
         )}
 
+        {medicacionLabel(saludData) && <p className="text-sm">{medicacionLabel(saludData)}</p>}
+        {asistenciaSaludLabel(saludData) && <p className="text-sm">{asistenciaSaludLabel(saludData)}</p>}
+
         {hayHistorialAsistencia && (
           <div className="flex flex-wrap gap-1.5 text-xs">
             <span className="bg-jom-yellow/40 text-jom-ink rounded-full px-2.5 py-0.5 font-medium">
@@ -160,6 +168,11 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
             <span className="text-muted">Sin próxima sesión agendada</span>
           )}
         </p>
+      </div>
+
+      <div className="glass flex flex-col gap-3 rounded-2xl p-5">
+        <p className="text-sm font-semibold">Medicación y asistencia de salud complementaria</p>
+        <PacienteSaludForm pacienteId={id} salud={saludData} />
       </div>
 
       <div className="flex flex-col gap-3">

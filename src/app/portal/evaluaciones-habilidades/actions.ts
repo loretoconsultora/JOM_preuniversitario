@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { textoPlanoAHtml } from "@/lib/strip-html";
 
 export async function crearHabilidad(formData: FormData) {
   const profile = await requireTerapeuta();
@@ -52,12 +53,13 @@ export async function crearEvaluacion(
     .eq("paciente_id", pacienteId);
   const numeroPeriodo = (count ?? 0) + 1;
 
+  const conclusionesTexto = conclusiones.trim() || null;
   const { data: evaluacion, error } = await supabase
     .from("evaluaciones_habilidades")
     .insert({
       paciente_id: pacienteId,
       numero_periodo: numeroPeriodo,
-      conclusiones: conclusiones.trim() || null,
+      conclusiones: conclusionesTexto,
       creado_por: profile.id,
     })
     .select("id")
@@ -72,6 +74,18 @@ export async function crearEvaluacion(
     }))
   );
   if (eCal) throw new Error(eCal.message);
+
+  // Las conclusiones de la evaluación se copian al historial de notas del
+  // paciente como "Nota de evaluación", solo generable desde aquí.
+  if (conclusionesTexto) {
+    const { error: eNota } = await supabase.from("paciente_notas").insert({
+      paciente_id: pacienteId,
+      contenido: textoPlanoAHtml(conclusionesTexto),
+      tipo: "evaluacion",
+      creado_por: profile.id,
+    });
+    if (eNota) throw new Error(eNota.message);
+  }
 
   revalidatePath("/portal/evaluaciones-habilidades");
   revalidatePath(`/portal/pacientes/${pacienteId}`);

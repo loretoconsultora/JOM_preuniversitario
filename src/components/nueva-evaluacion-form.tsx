@@ -2,16 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { crearEvaluacion } from "@/app/portal/evaluaciones-habilidades/actions";
+import { DescargarTablaPDF } from "@/components/descargar-tabla-pdf";
 import type { Habilidad } from "@/types/database";
 
-export function NuevaEvaluacionForm({ pacienteId, habilidades }: { pacienteId: string; habilidades: Habilidad[] }) {
+export function NuevaEvaluacionForm({
+  pacienteId,
+  pacienteNombre,
+  terapeutaNombre,
+  habilidades,
+}: {
+  pacienteId: string;
+  pacienteNombre: string;
+  terapeutaNombre: string;
+  habilidades: Habilidad[];
+}) {
   const router = useRouter();
   const [calificaciones, setCalificaciones] = useState<Record<string, number>>({});
   const [conclusiones, setConclusiones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [guardada, setGuardada] = useState<{
+    body: (string | number)[][];
+    conclusiones: string;
+  } | null>(null);
 
   async function guardar() {
     setError(null);
@@ -23,6 +38,10 @@ export function NuevaEvaluacionForm({ pacienteId, habilidades }: { pacienteId: s
     setGuardando(true);
     try {
       await crearEvaluacion(pacienteId, lista, conclusiones);
+      setGuardada({
+        body: habilidades.map((h) => [h.nombre, calificaciones[h.id]]),
+        conclusiones,
+      });
       setCalificaciones({});
       setConclusiones("");
       router.refresh();
@@ -77,14 +96,38 @@ export function NuevaEvaluacionForm({ pacienteId, habilidades }: { pacienteId: s
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={guardar}
-        disabled={guardando}
-        className="w-fit rounded-full bg-jom-ink px-5 py-2.5 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
-      >
-        {guardando ? "Guardando…" : "Guardar evaluación"}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={guardando}
+          className="w-fit rounded-full bg-jom-ink px-5 py-2.5 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
+        >
+          {guardando ? "Guardando…" : "Guardar evaluación"}
+        </button>
+
+        {guardada && (
+          <>
+            <span className="inline-flex items-center gap-1 text-xs text-green-600">
+              <CheckCircle2 size={13} /> Guardada
+            </span>
+            <DescargarTablaPDF
+              label="Descargar PDF"
+              titulo="Evaluación de habilidades"
+              meta={[
+                `Paciente: ${pacienteNombre}`,
+                `Terapeuta: ${terapeutaNombre}`,
+                `Fecha del reporte: ${new Date().toLocaleDateString("es-MX")}`,
+              ]}
+              head={["Habilidad", "Calificación"]}
+              body={guardada.body}
+              notaFinal={guardada.conclusiones || undefined}
+              archivo={`evaluacion-${pacienteNombre.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.pdf`}
+              className="text-muted inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10"
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }

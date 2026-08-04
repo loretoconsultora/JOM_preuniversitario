@@ -177,12 +177,29 @@ export type Paciente = {
   created_at: string;
 };
 
+export type TipoNota = "general" | "evaluacion";
+
 export type PacienteNota = {
   id: string;
   paciente_id: string;
   contenido: string;
+  tipo: TipoNota;
   creado_por: string;
   created_at: string;
+};
+
+export type AsistenciaSaludTipo = "nutricion" | "entrenamiento" | "fisioterapia" | "otro";
+
+export type PacienteSalud = {
+  paciente_id: string;
+  medicacion_toma: boolean;
+  medicacion_cual: string | null;
+  medicacion_dosis: string | null;
+  medicacion_desde: string | null;
+  asistencia_tipos: AsistenciaSaludTipo[];
+  asistencia_detalle: string | null;
+  actualizado_por: string | null;
+  updated_at: string;
 };
 
 export type EstadoSesion = "pendiente" | "asistio" | "no_asistio" | "reagendada";

@@ -49,3 +49,19 @@ export async function requireTerapeuta(): Promise<Profile> {
   }
   return profile;
 }
+
+export async function requireDirectora(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (profile.role !== "directora") {
+    redirect("/portal");
+  }
+  return profile;
+}
+
+export async function requireTerapeutaODirectora(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (profile.role !== "terapeuta" && profile.role !== "directora") {
+    redirect("/portal");
+  }
+  return profile;
+}

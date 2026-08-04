@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { agregarNotaPaciente } from "@/app/portal/pacientes/actions";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { stripHtml } from "@/lib/strip-html";
+import { NOTA_KIND_LABEL, NOTA_KIND_EMOJI, NOTA_KIND_CLASS, type NotaKind } from "@/lib/tipo-nota";
 import type { PacienteNota } from "@/types/database";
 
 function formatFecha(iso: string) {
@@ -39,14 +40,14 @@ export function NotasSection({
       contenido: n.contenido,
       fechaOrden: n.created_at,
       fechaLabel: formatFecha(n.created_at),
-      deSesion: false as const,
+      kind: (n.tipo === "evaluacion" ? "evaluacion" : "general") as NotaKind,
     })),
     ...notasDeSesion.map((n) => ({
       id: n.id,
       contenido: n.contenido,
       fechaOrden: n.fecha,
       fechaLabel: formatFechaSesion(n.fecha),
-      deSesion: true,
+      kind: "sesion" as NotaKind,
     })),
   ].sort((a, b) => b.fechaOrden.localeCompare(a.fechaOrden));
 
@@ -106,9 +107,14 @@ export function NotasSection({
                 ) : (
                   <p className="truncate text-sm">{stripHtml(n.contenido)}</p>
                 )}
-                <span className="text-muted text-xs">
-                  {n.fechaLabel} · {n.deSesion ? "Nota de sesión" : "Nota general"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${NOTA_KIND_CLASS[n.kind]}`}
+                  >
+                    {NOTA_KIND_EMOJI[n.kind]} {NOTA_KIND_LABEL[n.kind]}
+                  </span>
+                  <span className="text-muted text-xs">{n.fechaLabel}</span>
+                </div>
               </button>
             );
           })}

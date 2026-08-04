@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireTerapeuta } from "@/lib/auth";
+import { requireTerapeuta, requireTerapeutaODirectora } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import type { AsistenciaSaludTipo } from "@/types/database";
 
 export async function crearPaciente(formData: FormData) {
   const profile = await requireTerapeuta();
@@ -40,10 +41,36 @@ export async function agregarNotaPaciente(pacienteId: string, contenido: string)
   const supabase = await createClient();
   const { error } = await supabase
     .from("paciente_notas")
-    .insert({ paciente_id: pacienteId, contenido, creado_por: profile.id });
+    .insert({ paciente_id: pacienteId, contenido, tipo: "general", creado_por: profile.id });
   if (error) throw new Error(error.message);
 
   revalidatePath(`/portal/pacientes/${pacienteId}`);
+}
+
+export async function guardarPacienteSalud(
+  pacienteId: string,
+  datos: {
+    medicacion_toma: boolean;
+    medicacion_cual: string | null;
+    medicacion_dosis: string | null;
+    medicacion_desde: string | null;
+    asistencia_tipos: AsistenciaSaludTipo[];
+    asistencia_detalle: string | null;
+  }
+) {
+  const profile = await requireTerapeutaODirectora();
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("paciente_salud").upsert({
+    paciente_id: pacienteId,
+    ...datos,
+    actualizado_por: profile.id,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/portal/pacientes/${pacienteId}`);
+  revalidatePath("/portal/seguimiento-salud");
 }
 
 export async function archivarPaciente(id: string, activo: boolean) {
