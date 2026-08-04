@@ -1,10 +1,25 @@
 import Link from "next/link";
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, User } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { SesionQuickActions } from "@/components/sesion-quick-actions";
 import { DescargarReportePDF } from "@/components/descargar-reporte-pdf";
 import type { EstadoSesion, Paciente } from "@/types/database";
+
+function AvatarPaciente({ url, size = "h-8 w-8" }: { url: string | null | undefined; size?: string }) {
+  return (
+    <div className={`${size} shrink-0 overflow-hidden rounded-full`}>
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- avatar subido por el alumno, no un asset estático
+        <img src={url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="bg-jom-pink/30 flex h-full w-full items-center justify-center">
+          <User size={14} className="text-jom-ink/60" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 type SesionConPaciente = {
   id: string;
@@ -29,11 +44,13 @@ function Grupo({
   sesiones,
   hoy,
   vacio,
+  avatarPorPaciente,
 }: {
   titulo: string;
   sesiones: SesionConPaciente[];
   hoy: string;
   vacio: string;
+  avatarPorPaciente: Map<string, string | null>;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -47,14 +64,17 @@ function Grupo({
               key={s.id}
               className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between"
             >
-              <div>
-                <Link href={`/portal/pacientes/${s.paciente_id}`} className="text-sm font-medium hover:underline">
-                  {s.pacientes?.nombre ?? "Paciente"}
-                </Link>
-                <p className="text-muted text-xs">
-                  {formatFecha(s.fecha)}
-                  {s.hora && ` · ${s.hora.slice(0, 5)}`}
-                </p>
+              <div className="flex items-center gap-2.5">
+                <AvatarPaciente url={avatarPorPaciente.get(s.paciente_id)} />
+                <div>
+                  <Link href={`/portal/pacientes/${s.paciente_id}`} className="text-sm font-medium hover:underline">
+                    {s.pacientes?.nombre ?? "Paciente"}
+                  </Link>
+                  <p className="text-muted text-xs">
+                    {formatFecha(s.fecha)}
+                    {s.hora && ` · ${s.hora.slice(0, 5)}`}
+                  </p>
+                </div>
               </div>
               <SesionQuickActions
                 sesionId={s.id}
@@ -105,6 +125,16 @@ export default async function AsistenciaPage({
   const sesionesList = (sesiones ?? []) as unknown as SesionConPaciente[];
   const pacientesList = (pacientes ?? []) as Paciente[];
 
+  const alumnoIds = pacientesList.map((p) => p.alumno_id).filter((id): id is string => Boolean(id));
+  const { data: alumnosVinculados } =
+    alumnoIds.length > 0
+      ? await supabase.from("profiles").select("id, avatar_url").in("id", alumnoIds)
+      : { data: [] as { id: string; avatar_url: string | null }[] };
+  const avatarPorAlumno = new Map((alumnosVinculados ?? []).map((a) => [a.id, a.avatar_url]));
+  const avatarPorPaciente = new Map(
+    pacientesList.map((p) => [p.id, p.alumno_id ? (avatarPorAlumno.get(p.alumno_id) ?? null) : null])
+  );
+
   // Cada sesión cuenta en un solo balde según su estado actual: una
   // completada/reprogramada/cancelada deja de contarse como programada.
   const filasMes = pacientesList.map((p) => {
@@ -141,6 +171,43 @@ export default async function AsistenciaPage({
         <p className="text-muted text-sm">Agenda y control de asistencia de todos tus pacientes</p>
       </div>
 
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-semibold">Resumen del mes ({mesLabelCapitalizado})</p>
+        <div className="glass grid grid-cols-2 gap-3 rounded-2xl p-5 sm:grid-cols-4">
+          <div>
+            <p className="text-muted text-xs uppercase">Programadas</p>
+            <p className="text-xl font-semibold">{totalesMes.programadas}</p>
+          </div>
+          <div>
+            <p className="text-muted text-xs uppercase">Completadas</p>
+            <p className="text-xl font-semibold">{totalesMes.completadas}</p>
+          </div>
+          <div>
+            <p className="text-muted text-xs uppercase">Reprogramadas</p>
+            <p className="text-xl font-semibold">{totalesMes.reprogramadas}</p>
+          </div>
+          <div>
+            <p className="text-muted text-xs uppercase">Canceladas</p>
+            <p className="text-xl font-semibold">{totalesMes.canceladas}</p>
+          </div>
+        </div>
+      </div>
+
+      {mesTerminado && (
+        <div className="glass-strong flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-jom-yellow p-5">
+          <div className="flex items-center gap-3">
+            <CalendarCheck size={18} className="shrink-0 text-jom-ink dark:text-jom-yellow" />
+            <p className="text-sm font-medium">Descargar reporte de sesiones por paciente de {mesLabelCapitalizado}</p>
+          </div>
+          <DescargarReportePDF
+            terapeuta={profile.nombre_completo}
+            mesLabel={mesLabelCapitalizado}
+            filas={filasMes}
+            totales={totalesMes}
+          />
+        </div>
+      )}
+
       <div className="flex gap-1.5">
         <Link href="/portal/asistencia?vista=calendario" className={tabClass(vista === "calendario")}>
           Por calendario
@@ -160,56 +227,27 @@ export default async function AsistenciaPage({
 
           return (
             <>
-              <Grupo titulo="Hoy" sesiones={deHoy} hoy={hoy} vacio="No hay sesiones agendadas para hoy." />
+              <Grupo
+                titulo="Hoy"
+                sesiones={deHoy}
+                hoy={hoy}
+                vacio="No hay sesiones agendadas para hoy."
+                avatarPorPaciente={avatarPorPaciente}
+              />
               <Grupo
                 titulo="Próximos 7 días"
                 sesiones={proximaSemana}
                 hoy={hoy}
                 vacio="No hay sesiones agendadas para los próximos 7 días."
+                avatarPorPaciente={avatarPorPaciente}
               />
               <Grupo
                 titulo="Últimos 7 días"
                 sesiones={semanaPasada}
                 hoy={hoy}
                 vacio="No hay sesiones registradas en los últimos 7 días."
+                avatarPorPaciente={avatarPorPaciente}
               />
-
-              <div className="flex flex-col gap-3">
-                <p className="text-sm font-semibold">Último mes ({mesLabelCapitalizado})</p>
-                <div className="glass grid grid-cols-2 gap-3 rounded-2xl p-5 sm:grid-cols-4">
-                  <div>
-                    <p className="text-muted text-xs uppercase">Programadas</p>
-                    <p className="text-xl font-semibold">{totalesMes.programadas}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted text-xs uppercase">Completadas</p>
-                    <p className="text-xl font-semibold">{totalesMes.completadas}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted text-xs uppercase">Reprogramadas</p>
-                    <p className="text-xl font-semibold">{totalesMes.reprogramadas}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted text-xs uppercase">Canceladas</p>
-                    <p className="text-xl font-semibold">{totalesMes.canceladas}</p>
-                  </div>
-                </div>
-              </div>
-
-              {mesTerminado && (
-                <div className="glass-strong flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-jom-yellow p-5">
-                  <div className="flex items-center gap-3">
-                    <CalendarCheck size={18} className="shrink-0 text-jom-ink dark:text-jom-yellow" />
-                    <p className="text-sm font-medium">Descargar reporte de sesiones por paciente de {mesLabelCapitalizado}</p>
-                  </div>
-                  <DescargarReportePDF
-                    terapeuta={profile.nombre_completo}
-                    mesLabel={mesLabelCapitalizado}
-                    filas={filasMes}
-                    totales={totalesMes}
-                  />
-                </div>
-              )}
             </>
           );
         })()
@@ -255,7 +293,8 @@ export default async function AsistenciaPage({
                   {filas.map((f) => (
                     <tr key={f.paciente.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
                       <td className="px-5 py-3 font-medium">
-                        <Link href={`/portal/pacientes/${f.paciente.id}`} className="hover:underline">
+                        <Link href={`/portal/pacientes/${f.paciente.id}`} className="flex items-center gap-2.5 hover:underline">
+                          <AvatarPaciente url={avatarPorPaciente.get(f.paciente.id)} size="h-7 w-7" />
                           {f.paciente.nombre}
                         </Link>
                       </td>
