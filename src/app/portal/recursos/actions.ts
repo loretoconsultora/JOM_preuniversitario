@@ -15,6 +15,9 @@ export async function crearRecurso(formData: FormData) {
 
   const titulo = String(formData.get("titulo") || "").trim();
   const materia_id = String(formData.get("materia_id") || "") || null;
+  // Sin materia no tiene sentido un tema/subtema, así que se ignoran.
+  const tema_id = materia_id ? String(formData.get("tema_id") || "") || null : null;
+  const subtema_id = tema_id ? String(formData.get("subtema_id") || "") || null : null;
   const tipo = String(formData.get("tipo") || "");
   const url = String(formData.get("url") || "").trim();
   const archivo = formData.get("archivo");
@@ -34,6 +37,8 @@ export async function crearRecurso(formData: FormData) {
       titulo,
       tipo: "enlace",
       materia_id,
+      tema_id,
+      subtema_id,
       url: urlNormalizada,
       creado_por: profile.id,
     });
@@ -52,6 +57,8 @@ export async function crearRecurso(formData: FormData) {
       titulo,
       tipo: "archivo",
       materia_id,
+      tema_id,
+      subtema_id,
       storage_path: storagePath,
       nombre_archivo: archivo.name,
       tipo_mime: archivo.type || null,

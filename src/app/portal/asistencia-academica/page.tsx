@@ -1,13 +1,13 @@
-import Link from "next/link";
 import { Trash2, Users } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { materiasGestionables } from "@/lib/materias-gestionables";
 import { alumnosInscritos } from "@/lib/materias-inscritas";
-import type { ClaseAsistencia, ClaseSesion, Profile } from "@/types/database";
+import type { ClaseAsistencia, ClaseSesion, Profile, Tema } from "@/types/database";
 import { TomarAsistenciaForm } from "@/components/tomar-asistencia-form";
 import { InscribirAlumnosSection } from "@/components/inscribir-alumnos-section";
+import { AsistenciaMateriaSelector } from "@/components/asistencia-materia-selector";
 import { eliminarSesionAsistencia } from "./actions";
 
 function formatFecha(fecha: string) {
@@ -34,7 +34,7 @@ export default async function AsistenciaAcademicaPage({
     const materiaSeleccionada =
       materiaParam && materiasList.some((m) => m.id === materiaParam) ? materiaParam : (materiasList[0]?.id ?? null);
 
-    const [todosAlumnos, alumnosRoster, { data: sesiones }, inscritosResult] = await Promise.all([
+    const [todosAlumnos, alumnosRoster, { data: sesiones }, inscritosResult, { data: temas }] = await Promise.all([
       supabase.from("profiles").select("*").eq("role", "alumno").order("nombre_completo"),
       materiaSeleccionada
         ? alumnosInscritos(supabase, materiaSeleccionada)
@@ -45,11 +45,16 @@ export default async function AsistenciaAcademicaPage({
       materiaSeleccionada
         ? supabase.from("materia_alumnos").select("alumno_id").eq("materia_id", materiaSeleccionada)
         : Promise.resolve({ data: [] as { alumno_id: string }[] }),
+      materiaSeleccionada
+        ? supabase.from("temas").select("*").eq("materia_id", materiaSeleccionada).order("orden")
+        : Promise.resolve({ data: [] as Tema[] }),
     ]);
     const alumnosList = alumnosRoster;
     const todosAlumnosList = (todosAlumnos.data ?? []) as Profile[];
     const inscritosIds = (inscritosResult.data ?? []).map((i) => i.alumno_id);
     const sesionesList = (sesiones ?? []) as ClaseSesion[];
+    const temasList = (temas ?? []) as Tema[];
+    const temaById = new Map(temasList.map((t) => [t.id, t.titulo]));
 
     let alumnosConCorreo: { id: string; nombre_completo: string; email: string | null }[] = todosAlumnosList.map(
       (a) => ({ id: a.id, nombre_completo: a.nombre_completo, email: null })
@@ -80,11 +85,6 @@ export default async function AsistenciaAcademicaPage({
       if (a.presente) presentesPorSesion.set(a.sesion_id, (presentesPorSesion.get(a.sesion_id) ?? 0) + 1);
     }
 
-    const tabClass = (activo: boolean) =>
-      `rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-        activo ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink" : "glass hover:opacity-80"
-      }`;
-
     return (
       <div className="flex flex-col gap-6">
         <div>
@@ -92,18 +92,11 @@ export default async function AsistenciaAcademicaPage({
           <p className="text-muted text-sm">Registra quién asistió a cada clase de tu materia</p>
         </div>
 
-        {materiasList.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            {materiasList.map((m) => (
-              <Link
-                key={m.id}
-                href={`/portal/asistencia-academica?materia=${m.id}`}
-                className={tabClass(m.id === materiaSeleccionada)}
-              >
-                {m.nombre}
-              </Link>
-            ))}
-          </div>
+        {materiasList.length > 1 && materiaSeleccionada && (
+          <AsistenciaMateriaSelector
+            materias={materiasList.map((m) => ({ id: m.id, nombre: m.nombre }))}
+            seleccionada={materiaSeleccionada}
+          />
         )}
 
         {!materiaSeleccionada ? (
@@ -118,7 +111,12 @@ export default async function AsistenciaAcademicaPage({
               inscritosIniciales={inscritosIds}
             />
 
-            <TomarAsistenciaForm materiaId={materiaSeleccionada} alumnos={alumnosList} />
+            <TomarAsistenciaForm
+              key={materiaSeleccionada}
+              materiaId={materiaSeleccionada}
+              temas={temasList}
+              alumnos={alumnosList}
+            />
 
             <div className="flex flex-col gap-3">
               <p className="text-sm font-semibold">Historial de clases</p>
@@ -135,6 +133,11 @@ export default async function AsistenciaAcademicaPage({
                     >
                       <div>
                         <p className="text-sm font-medium capitalize">{formatFecha(s.fecha)}</p>
+                        {s.tema_id && temaById.has(s.tema_id) && (
+                          <span className="mr-1.5 inline-block rounded-full bg-jom-yellow/40 px-2 py-0.5 text-xs font-medium text-jom-ink">
+                            {temaById.get(s.tema_id)}
+                          </span>
+                        )}
                         {s.nota && <p className="text-muted text-xs">{s.nota}</p>}
                       </div>
                       <div className="flex items-center gap-3">

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function crearSesionAsistencia(
   materiaId: string,
+  temaId: string | null,
   fecha: string,
   nota: string,
   asistencias: { alumno_id: string; presente: boolean }[]
@@ -18,7 +19,7 @@ export async function crearSesionAsistencia(
   const supabase = await createClient();
   const { data: sesion, error } = await supabase
     .from("clase_sesiones")
-    .insert({ materia_id: materiaId, fecha, nota: nota.trim() || null, creado_por: profile.id })
+    .insert({ materia_id: materiaId, tema_id: temaId, fecha, nota: nota.trim() || null, creado_por: profile.id })
     .select("id")
     .single();
   if (error) throw new Error(error.message);

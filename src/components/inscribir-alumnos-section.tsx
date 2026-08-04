@@ -51,7 +51,11 @@ export function InscribirAlumnosSection({
         <button
           type="button"
           onClick={() => setAbierto((v) => !v)}
-          className="text-muted inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3.5 py-2 text-xs font-medium transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+          className={
+            abierto
+              ? "text-muted inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3.5 py-2 text-xs font-medium transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+              : "inline-flex items-center gap-1.5 rounded-full bg-jom-pink px-3.5 py-2 text-xs font-semibold text-jom-ink transition-opacity hover:opacity-90"
+          }
         >
           <UserPlus size={14} /> {abierto ? "Cerrar" : "Agregar alumnos"}
         </button>

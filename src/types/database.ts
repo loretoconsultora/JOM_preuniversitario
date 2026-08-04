@@ -111,6 +111,8 @@ export type Recurso = {
   titulo: string;
   tipo: "archivo" | "enlace";
   materia_id: string | null;
+  tema_id: string | null;
+  subtema_id: string | null;
   storage_path: string | null;
   nombre_archivo: string | null;
   tipo_mime: string | null;
@@ -323,6 +325,7 @@ export type TareaIntento = {
 export type ClaseSesion = {
   id: string;
   materia_id: string;
+  tema_id: string | null;
   fecha: string;
   nota: string | null;
   creado_por: string;

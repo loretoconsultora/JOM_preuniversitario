@@ -4,12 +4,21 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { crearSesionAsistencia } from "@/app/portal/asistencia-academica/actions";
-import type { Profile } from "@/types/database";
+import type { Profile, Tema } from "@/types/database";
 
-export function TomarAsistenciaForm({ materiaId, alumnos }: { materiaId: string; alumnos: Profile[] }) {
+export function TomarAsistenciaForm({
+  materiaId,
+  temas,
+  alumnos,
+}: {
+  materiaId: string;
+  temas: Tema[];
+  alumnos: Profile[];
+}) {
   const router = useRouter();
   const hoy = new Date().toISOString().slice(0, 10);
   const [fecha, setFecha] = useState(hoy);
+  const [temaId, setTemaId] = useState("");
   const [nota, setNota] = useState("");
   const [presentes, setPresentes] = useState<Set<string>>(new Set());
   const [guardando, setGuardando] = useState(false);
@@ -31,8 +40,9 @@ export function TomarAsistenciaForm({ materiaId, alumnos }: { materiaId: string;
     setGuardando(true);
     try {
       const asistencias = alumnos.map((a) => ({ alumno_id: a.id, presente: presentes.has(a.id) }));
-      await crearSesionAsistencia(materiaId, fecha, nota, asistencias);
+      await crearSesionAsistencia(materiaId, temaId || null, fecha, nota, asistencias);
       setPresentes(new Set());
+      setTemaId("");
       setNota("");
       setGuardado(true);
       router.refresh();
@@ -49,18 +59,38 @@ export function TomarAsistenciaForm({ materiaId, alumnos }: { materiaId: string;
   return (
     <div className="glass flex flex-col gap-3 rounded-2xl p-5">
       <p className="text-sm font-semibold">Tomar asistencia</p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1.5 text-sm">
           Fecha
           <input
             type="date"
             value={fecha}
+            max={hoy}
             onChange={(e) => {
               setFecha(e.target.value);
               setGuardado(false);
             }}
             className={inputClass}
           />
+          <span className="text-muted text-xs">Puedes elegir cualquier fecha anterior, no solo hoy.</span>
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm">
+          Tema (opcional)
+          <select
+            value={temaId}
+            onChange={(e) => {
+              setTemaId(e.target.value);
+              setGuardado(false);
+            }}
+            className={inputClass}
+          >
+            <option value="">Sin especificar</option>
+            {temas.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.titulo}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="flex flex-col gap-1.5 text-sm">
           Nota (opcional)
@@ -70,7 +100,7 @@ export function TomarAsistenciaForm({ materiaId, alumnos }: { materiaId: string;
               setNota(e.target.value);
               setGuardado(false);
             }}
-            placeholder="Ej. Tema visto ese día"
+            placeholder="Ej. Aviso o detalle de la clase"
             className={inputClass}
           />
         </label>

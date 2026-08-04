@@ -1,11 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import type { Materia } from "@/types/database";
+import { useMemo, useState } from "react";
+import type { Materia, Subtema, Tema } from "@/types/database";
 import { crearRecurso } from "@/app/portal/recursos/actions";
 
-export function RecursoForm({ materias }: { materias: Materia[] }) {
+export function RecursoForm({
+  materias,
+  temas,
+  subtemas,
+}: {
+  materias: Materia[];
+  temas: Tema[];
+  subtemas: Subtema[];
+}) {
   const [tipo, setTipo] = useState<"archivo" | "enlace">("archivo");
+  const [materiaId, setMateriaId] = useState("");
+  const [temaId, setTemaId] = useState("");
+  const [subtemaId, setSubtemaId] = useState("");
+
+  const temasDeLaMateria = useMemo(() => temas.filter((t) => t.materia_id === materiaId), [temas, materiaId]);
+  const subtemasDelTema = useMemo(() => subtemas.filter((s) => s.tema_id === temaId), [subtemas, temaId]);
 
   const inputClass =
     "glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
@@ -19,7 +33,16 @@ export function RecursoForm({ materias }: { materias: Materia[] }) {
 
       <label className="flex flex-col gap-1.5 text-sm">
         Materia (opcional)
-        <select name="materia_id" className={inputClass}>
+        <select
+          name="materia_id"
+          value={materiaId}
+          onChange={(e) => {
+            setMateriaId(e.target.value);
+            setTemaId("");
+            setSubtemaId("");
+          }}
+          className={inputClass}
+        >
           <option value="">General (todas las materias)</option>
           {materias.map((m) => (
             <option key={m.id} value={m.id}>
@@ -28,6 +51,52 @@ export function RecursoForm({ materias }: { materias: Materia[] }) {
           ))}
         </select>
       </label>
+
+      {materiaId && temasDeLaMateria.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5 text-sm">
+            Tema (opcional)
+            <select
+              name="tema_id"
+              value={temaId}
+              onChange={(e) => {
+                setTemaId(e.target.value);
+                setSubtemaId("");
+              }}
+              className={inputClass}
+            >
+              <option value="">Sin especificar</option>
+              {temasDeLaMateria.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.titulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm">
+            Subtema (opcional)
+            <select
+              name="subtema_id"
+              value={subtemaId}
+              onChange={(e) => setSubtemaId(e.target.value)}
+              disabled={!temaId || subtemasDelTema.length === 0}
+              className={`${inputClass} disabled:opacity-50`}
+            >
+              <option value="">Sin especificar</option>
+              {subtemasDelTema.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.titulo}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      {materiaId && temasDeLaMateria.length > 0 && (
+        <p className="text-muted -mt-2 text-xs">
+          Si eliges tema o subtema, este recurso también aparecerá en esa sección del Temario.
+        </p>
+      )}
 
       <div className="flex flex-col gap-1.5 text-sm">
         Tipo de recurso

@@ -1,6 +1,17 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { ArrowLeft, Plus, Sparkles, Trash2, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Sparkles,
+  Trash2,
+  LinkIcon,
+  ChevronDown,
+  ClipboardList,
+  FileQuestion,
+  FileText,
+  Link2,
+} from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { materiasGestionables } from "@/lib/materias-gestionables";
@@ -10,6 +21,7 @@ import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import type {
   Examen,
   Materia,
+  Recurso,
   Role,
   Subtema,
   SubtemaEjercicio,
@@ -102,6 +114,7 @@ export default async function TemarioPage({
     { data: subtemas, error: eSubtemas },
     { data: tareasVinculadas, error: eTareasVinc },
     { data: examenesVinculados, error: eExamenesVinc },
+    { data: recursosVinculados, error: eRecursosVinc },
   ] =
     temaIds.length > 0
       ? await Promise.all([
@@ -109,22 +122,26 @@ export default async function TemarioPage({
           supabase.from("subtemas").select("*").in("tema_id", temaIds).order("orden"),
           supabase.from("tareas").select("*").in("tema_id", temaIds),
           supabase.from("examenes").select("*").in("tema_id", temaIds),
+          supabase.from("recursos").select("*").in("tema_id", temaIds),
         ])
       : [
           { data: [] as TemaArchivo[], error: null },
           { data: [] as Subtema[], error: null },
           { data: [] as Tarea[], error: null },
           { data: [] as Examen[], error: null },
+          { data: [] as Recurso[], error: null },
         ];
   if (eArchivos) throw new Error(`tema_archivos: ${eArchivos.message}`);
   if (eSubtemas) throw new Error(`subtemas: ${eSubtemas.message}`);
   if (eTareasVinc) throw new Error(`tareas: ${eTareasVinc.message}`);
   if (eExamenesVinc) throw new Error(`examenes: ${eExamenesVinc.message}`);
+  if (eRecursosVinc) throw new Error(`recursos: ${eRecursosVinc.message}`);
 
   const archivosList = (archivos ?? []) as TemaArchivo[];
   const subtemasList = (subtemas ?? []) as Subtema[];
   const tareasVinculadasList = (tareasVinculadas ?? []) as Tarea[];
   const examenesVinculadosList = (examenesVinculados ?? []) as Examen[];
+  const recursosVinculadosList = (recursosVinculados ?? []) as Recurso[];
   const subtemaIds = subtemasList.map((s) => s.id);
 
   const [{ data: ejercicios, error: eEjercicios }, { data: videos, error: eVideos }] =
@@ -164,6 +181,20 @@ export default async function TemarioPage({
     const list = examenesPorTema.get(ex.tema_id) ?? [];
     list.push(ex);
     examenesPorTema.set(ex.tema_id, list);
+  }
+
+  const recursosPorTema = new Map<string, Recurso[]>();
+  const recursosPorSubtema = new Map<string, Recurso[]>();
+  for (const r of recursosVinculadosList) {
+    if (r.subtema_id) {
+      const list = recursosPorSubtema.get(r.subtema_id) ?? [];
+      list.push(r);
+      recursosPorSubtema.set(r.subtema_id, list);
+    } else if (r.tema_id) {
+      const list = recursosPorTema.get(r.tema_id) ?? [];
+      list.push(r);
+      recursosPorTema.set(r.tema_id, list);
+    }
   }
 
   const subtemasPorTema = new Map<string, Subtema[]>();
@@ -230,6 +261,7 @@ export default async function TemarioPage({
             const temaSubtemas = subtemasPorTema.get(tema.id) ?? [];
             const temaTareas = tareasPorTema.get(tema.id) ?? [];
             const temaExamenes = examenesPorTema.get(tema.id) ?? [];
+            const temaRecursos = recursosPorTema.get(tema.id) ?? [];
             const accent = TEMA_ACCENTS[temaIndex % TEMA_ACCENTS.length];
 
             return (
@@ -285,7 +317,7 @@ export default async function TemarioPage({
                     </div>
                   )}
 
-                  {(temaTareas.length > 0 || temaExamenes.length > 0) && (
+                  {(temaTareas.length > 0 || temaExamenes.length > 0 || temaRecursos.length > 0) && (
                     <div className="flex flex-wrap gap-1.5">
                       {temaTareas.map((t) => (
                         <Link
@@ -305,6 +337,17 @@ export default async function TemarioPage({
                           <FileQuestion size={12} /> {ex.titulo}
                         </Link>
                       ))}
+                      {temaRecursos.map((r) => (
+                        <a
+                          key={r.id}
+                          href={`/portal/recursos/${r.id}/abrir`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
+                        >
+                          {r.tipo === "archivo" ? <FileText size={12} /> : <Link2 size={12} />} {r.titulo}
+                        </a>
+                      ))}
                     </div>
                   )}
 
@@ -315,6 +358,7 @@ export default async function TemarioPage({
                       {temaSubtemas.map((subtema) => {
                         const subEjercicios = ejerciciosPorSubtema.get(subtema.id) ?? [];
                         const subVideos = videosPorSubtema.get(subtema.id) ?? [];
+                        const subRecursos = recursosPorSubtema.get(subtema.id) ?? [];
                         return (
                           <div
                             key={subtema.id}
@@ -326,7 +370,7 @@ export default async function TemarioPage({
                               <p className="text-muted mt-1 whitespace-pre-line text-xs">{subtema.detalle}</p>
                             )}
 
-                            {subEjercicios.length > 0 && (
+                            {(subEjercicios.length > 0 || subRecursos.length > 0) && (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {subEjercicios.map((ej) => (
                                   <a
@@ -337,6 +381,17 @@ export default async function TemarioPage({
                                     className="inline-flex items-center gap-1.5 rounded-full bg-jom-pink/30 px-3 py-1.5 text-xs font-medium text-jom-ink transition-opacity hover:opacity-80"
                                   >
                                     <LinkIcon size={12} /> {ej.titulo}
+                                  </a>
+                                ))}
+                                {subRecursos.map((r) => (
+                                  <a
+                                    key={r.id}
+                                    href={`/portal/recursos/${r.id}/abrir`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 rounded-full bg-jom-pink/30 px-3 py-1.5 text-xs font-medium text-jom-ink transition-opacity hover:opacity-80"
+                                  >
+                                    {r.tipo === "archivo" ? <FileText size={12} /> : <Link2 size={12} />} {r.titulo}
                                   </a>
                                 ))}
                               </div>
