@@ -14,6 +14,7 @@ function validarPreguntas(preguntas: PreguntaBorrador[]) {
   }
   for (const [i, p] of preguntas.entries()) {
     if (!p.enunciado.trim()) throw new Error(`La pregunta ${i + 1} no tiene enunciado.`);
+    if (p.tipo === "abierta") continue;
     const opciones = p.opciones.map((o) => o.trim()).filter(Boolean);
     if (opciones.length < 2) throw new Error(`La pregunta ${i + 1} necesita al menos 2 opciones.`);
     if (p.respuesta_correcta < 0 || p.respuesta_correcta >= p.opciones.length) {
@@ -56,9 +57,10 @@ export async function crearExamen(input: {
     input.preguntas.map((p, i) => ({
       examen_id: examen.id,
       orden: i,
+      tipo: p.tipo,
       enunciado: p.enunciado.trim(),
-      opciones: p.opciones.map((o) => o.trim()),
-      respuesta_correcta: p.respuesta_correcta,
+      opciones: p.tipo === "multiple" ? p.opciones.map((o) => o.trim()) : null,
+      respuesta_correcta: p.tipo === "multiple" ? p.respuesta_correcta : null,
     }))
   );
 
@@ -146,6 +148,7 @@ export async function generarPreguntasConIA(input: {
   return parsed.preguntas
     .filter((p) => Array.isArray(p.opciones) && p.opciones.length >= 2)
     .map((p) => ({
+      tipo: "multiple" as const,
       enunciado: p.enunciado,
       opciones: p.opciones,
       respuesta_correcta:
@@ -182,6 +185,7 @@ export async function parsearCSVExamen(formData: FormData): Promise<PreguntaBorr
       throw new Error(`Fila ${i + 2} del CSV: "respuesta_correcta" debe ser A, B, C o D.`);
     }
     return {
+      tipo: "multiple" as const,
       enunciado,
       opciones: [opcionA, opcionB, opcionC, opcionD],
       respuesta_correcta: indice,
@@ -220,7 +224,7 @@ export async function obtenerPreguntasParaTomar(examenId: string) {
 
   const { data: preguntas, error } = await admin
     .from("examen_preguntas")
-    .select("id, enunciado, opciones")
+    .select("id, tipo, enunciado, opciones")
     .eq("examen_id", examenId)
     .order("orden");
 
@@ -232,7 +236,7 @@ export async function obtenerPreguntasParaTomar(examenId: string) {
   };
 }
 
-export async function entregarExamen(examenId: string, respuestas: Record<string, number>) {
+export async function entregarExamen(examenId: string, respuestas: Record<string, number | string>) {
   const profile = await requireProfile();
   if (profile.role !== "alumno") {
     throw new Error("Solo los alumnos pueden presentar exámenes.");
@@ -242,18 +246,21 @@ export async function entregarExamen(examenId: string, respuestas: Record<string
   const admin = createAdminClient();
   const { data: preguntas, error } = await admin
     .from("examen_preguntas")
-    .select("id, respuesta_correcta")
+    .select("id, tipo, respuesta_correcta")
     .eq("examen_id", examenId);
 
   if (error) throw new Error(error.message);
   if (!preguntas || preguntas.length === 0) throw new Error("Este examen no tiene preguntas.");
 
+  // Solo se autocalifican las preguntas de opción múltiple; las abiertas
+  // quedan guardadas para revisión manual del docente, sin puntaje.
+  const preguntasMultiple = preguntas.filter((p) => p.tipo === "multiple");
   let aciertos = 0;
-  for (const pregunta of preguntas) {
+  for (const pregunta of preguntasMultiple) {
     if (respuestas[pregunta.id] === pregunta.respuesta_correcta) aciertos += 1;
   }
-  const total = preguntas.length;
-  const calificacion = Math.round((aciertos / total) * 1000) / 10;
+  const total = preguntasMultiple.length;
+  const calificacion = total > 0 ? Math.round((aciertos / total) * 1000) / 10 : null;
 
   const { error: insertError } = await admin.from("examen_intentos").insert({
     examen_id: examenId,

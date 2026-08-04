@@ -44,6 +44,18 @@ export default async function ExamenDetallePage({
       .map((ea) => alumnoById.get(ea.alumno_id)?.nombre_completo)
       .filter((n): n is string => Boolean(n));
 
+    // Respuestas de texto libre por pregunta abierta, para que el docente
+    // las revise (no hay nada que autocalificar en esas preguntas).
+    const respuestasAbiertasPorPregunta = new Map<string, { alumno: string; respuesta: string }[]>();
+    for (const intento of intentosList) {
+      for (const [preguntaId, respuesta] of Object.entries(intento.respuestas)) {
+        if (typeof respuesta !== "string") continue;
+        const lista = respuestasAbiertasPorPregunta.get(preguntaId) ?? [];
+        lista.push({ alumno: alumnoById.get(intento.alumno_id)?.nombre_completo ?? "—", respuesta });
+        respuestasAbiertasPorPregunta.set(preguntaId, lista);
+      }
+    }
+
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <Link href="/portal/examenes" className="text-muted inline-flex items-center gap-1.5 text-sm hover:text-fg">
@@ -92,9 +104,11 @@ export default async function ExamenDetallePage({
                         {alumnoById.get(intento.alumno_id)?.nombre_completo ?? "—"}
                       </td>
                       <td className="px-5 py-3">
-                        {intento.aciertos}/{intento.total}
+                        {intento.total > 0 ? `${intento.aciertos}/${intento.total}` : "—"}
                       </td>
-                      <td className="px-5 py-3 font-semibold">{intento.calificacion}%</td>
+                      <td className="px-5 py-3 font-semibold">
+                        {intento.calificacion !== null ? `${intento.calificacion}%` : "Pendiente de revisión"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -106,28 +120,47 @@ export default async function ExamenDetallePage({
         <div>
           <h2 className="mb-3 text-lg font-semibold">Preguntas</h2>
           <div className="flex flex-col gap-3">
-            {preguntasList.map((pregunta, i) => (
-              <div key={pregunta.id} className="glass rounded-2xl p-4">
-                <p className="text-sm font-medium">
-                  {i + 1}. {pregunta.enunciado}
-                </p>
-                <ul className="mt-2 flex flex-col gap-1">
-                  {pregunta.opciones.map((opcion, oIndex) => (
-                    <li
-                      key={oIndex}
-                      className={`text-sm ${
-                        oIndex === pregunta.respuesta_correcta
-                          ? "font-semibold text-jom-ink dark:text-jom-yellow"
-                          : "text-fg/70"
-                      }`}
-                    >
-                      {oIndex === pregunta.respuesta_correcta ? "✓ " : "· "}
-                      {opcion}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {preguntasList.map((pregunta, i) => {
+              const respuestasAbiertas = respuestasAbiertasPorPregunta.get(pregunta.id) ?? [];
+              return (
+                <div key={pregunta.id} className="glass rounded-2xl p-4">
+                  <p className="text-sm font-medium">
+                    {i + 1}. {pregunta.enunciado}
+                    {pregunta.tipo === "abierta" && (
+                      <span className="text-muted ml-2 text-xs font-normal">(pregunta abierta)</span>
+                    )}
+                  </p>
+                  {pregunta.tipo === "multiple" ? (
+                    <ul className="mt-2 flex flex-col gap-1">
+                      {(pregunta.opciones ?? []).map((opcion, oIndex) => (
+                        <li
+                          key={oIndex}
+                          className={`text-sm ${
+                            oIndex === pregunta.respuesta_correcta
+                              ? "font-semibold text-jom-ink dark:text-jom-yellow"
+                              : "text-fg/70"
+                          }`}
+                        >
+                          {oIndex === pregunta.respuesta_correcta ? "✓ " : "· "}
+                          {opcion}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : respuestasAbiertas.length === 0 ? (
+                    <p className="text-muted mt-2 text-xs">Nadie ha respondido esta pregunta todavía.</p>
+                  ) : (
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {respuestasAbiertas.map((r, j) => (
+                        <div key={j} className="rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+                          <p className="text-muted text-xs font-medium">{r.alumno}</p>
+                          <p>{r.respuesta}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -142,16 +175,17 @@ export default async function ExamenDetallePage({
     const admin = createAdminClient();
     const { data: preguntas } = await admin
       .from("examen_preguntas")
-      .select("id, enunciado, opciones, respuesta_correcta")
+      .select("id, tipo, enunciado, opciones, respuesta_correcta")
       .eq("examen_id", id)
       .order("orden");
 
     const revision = (preguntas ?? []).map((p) => ({
       id: p.id as string,
+      tipo: p.tipo as "multiple" | "abierta",
       enunciado: p.enunciado as string,
-      opciones: p.opciones as string[],
-      tuRespuesta: intento.respuestas[p.id] as number | undefined,
-      esCorrecta: intento.respuestas[p.id] === p.respuesta_correcta,
+      opciones: p.opciones as string[] | null,
+      tuRespuesta: intento.respuestas[p.id] as number | string | undefined,
+      esCorrecta: p.tipo === "multiple" && intento.respuestas[p.id] === p.respuesta_correcta,
     }));
 
     return (
@@ -162,9 +196,13 @@ export default async function ExamenDetallePage({
 
         <div className="glass-strong rounded-2xl p-6 text-center">
           <p className="text-muted text-sm">Tu calificación</p>
-          <p className="mt-1 text-4xl font-bold">{intento.calificacion}%</p>
+          <p className="mt-1 text-4xl font-bold">
+            {intento.calificacion !== null ? `${intento.calificacion}%` : "Pendiente"}
+          </p>
           <p className="text-muted mt-1 text-sm">
-            {intento.aciertos} de {intento.total} correctas
+            {intento.total > 0
+              ? `${intento.aciertos} de ${intento.total} correctas`
+              : "Tus respuestas abiertas están pendientes de revisión."}
           </p>
         </div>
 
@@ -172,17 +210,26 @@ export default async function ExamenDetallePage({
           {revision.map((p, i) => (
             <div key={p.id} className="glass rounded-2xl p-4">
               <div className="flex items-start gap-2">
-                {p.esCorrecta ? (
-                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-green-600" />
+                {p.tipo === "multiple" ? (
+                  p.esCorrecta ? (
+                    <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-green-600" />
+                  ) : (
+                    <XCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
+                  )
                 ) : (
-                  <XCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
+                  <span className="text-muted mt-0.5 shrink-0 text-xs">📝</span>
                 )}
                 <div>
                   <p className="text-sm font-medium">
                     {i + 1}. {p.enunciado}
                   </p>
                   <p className="text-muted mt-1 text-xs">
-                    Tu respuesta: {p.tuRespuesta !== undefined ? p.opciones[p.tuRespuesta] : "Sin responder"}
+                    Tu respuesta:{" "}
+                    {p.tuRespuesta === undefined
+                      ? "Sin responder"
+                      : p.tipo === "abierta"
+                        ? String(p.tuRespuesta)
+                        : (p.opciones?.[p.tuRespuesta as number] ?? "—")}
                   </p>
                 </div>
               </div>

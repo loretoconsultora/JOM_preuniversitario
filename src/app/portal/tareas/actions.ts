@@ -6,6 +6,7 @@ import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TAREAS_BUCKET } from "@/lib/storage";
 import { sanitizeRichText } from "@/lib/sanitize";
+import type { PreguntaBorrador } from "@/types/database";
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
@@ -37,6 +38,46 @@ async function subirArchivosTarea(
   }
 }
 
+function parsearPreguntas(formData: FormData): PreguntaBorrador[] {
+  const raw = String(formData.get("preguntas_json") || "[]");
+  let preguntas: PreguntaBorrador[];
+  try {
+    preguntas = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(preguntas)) return [];
+
+  return preguntas
+    .filter((p) => p.enunciado?.trim())
+    .filter((p) => p.tipo === "abierta" || p.opciones?.filter((o: string) => o.trim()).length >= 2)
+    .map((p) => ({
+      tipo: p.tipo === "abierta" ? ("abierta" as const) : ("multiple" as const),
+      enunciado: String(p.enunciado).trim(),
+      opciones: Array.isArray(p.opciones) ? p.opciones.map((o: string) => String(o).trim()) : [],
+      respuesta_correcta: Number(p.respuesta_correcta) || 0,
+    }));
+}
+
+async function guardarPreguntasTarea(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tareaId: string,
+  preguntas: PreguntaBorrador[]
+) {
+  if (preguntas.length === 0) return;
+  const { error } = await supabase.from("tarea_preguntas").insert(
+    preguntas.map((p, i) => ({
+      tarea_id: tareaId,
+      orden: i,
+      tipo: p.tipo,
+      enunciado: p.enunciado,
+      opciones: p.tipo === "multiple" ? p.opciones : null,
+      respuesta_correcta: p.tipo === "multiple" ? p.respuesta_correcta : null,
+    }))
+  );
+  if (error) throw new Error(error.message);
+}
+
 export async function crearTarea(formData: FormData) {
   const profile = await requireDocente();
 
@@ -45,7 +86,9 @@ export async function crearTarea(formData: FormData) {
   const titulo = String(formData.get("titulo") || "").trim();
   const descripcion = sanitizeRichText(String(formData.get("descripcion") || ""));
   const fecha_entrega = String(formData.get("fecha_entrega") || "");
+  const pide_respuesta_texto = formData.get("pide_respuesta_texto") === "on";
   const archivos = formData.getAll("archivos").filter((f): f is File => f instanceof File && f.size > 0);
+  const preguntas = parsearPreguntas(formData);
 
   if (!materia_id || !titulo) {
     throw new Error("Materia y título son obligatorios.");
@@ -60,6 +103,7 @@ export async function crearTarea(formData: FormData) {
       titulo,
       descripcion: descripcion || null,
       fecha_entrega: fecha_entrega || null,
+      pide_respuesta_texto,
       creado_por: profile.id,
     })
     .select("id")
@@ -68,6 +112,7 @@ export async function crearTarea(formData: FormData) {
   if (error) throw new Error(error.message);
 
   await subirArchivosTarea(supabase, tarea.id, archivos, profile.id);
+  await guardarPreguntasTarea(supabase, tarea.id, preguntas);
 
   revalidatePath("/portal/tareas");
   redirect("/portal/tareas");
@@ -81,7 +126,9 @@ export async function actualizarTarea(id: string, formData: FormData) {
   const titulo = String(formData.get("titulo") || "").trim();
   const descripcion = sanitizeRichText(String(formData.get("descripcion") || ""));
   const fecha_entrega = String(formData.get("fecha_entrega") || "");
+  const pide_respuesta_texto = formData.get("pide_respuesta_texto") === "on";
   const archivos = formData.getAll("archivos").filter((f): f is File => f instanceof File && f.size > 0);
+  const preguntas = parsearPreguntas(formData);
 
   if (!materia_id || !titulo) {
     throw new Error("Materia y título son obligatorios.");
@@ -96,12 +143,19 @@ export async function actualizarTarea(id: string, formData: FormData) {
       titulo,
       descripcion: descripcion || null,
       fecha_entrega: fecha_entrega || null,
+      pide_respuesta_texto,
     })
     .eq("id", id);
 
   if (error) throw new Error(error.message);
 
   await subirArchivosTarea(supabase, id, archivos, profile.id);
+
+  // Se reemplazan las preguntas por completo (evita lógica de diff, igual
+  // que se hace con los subtemas del temario).
+  const { error: deleteError } = await supabase.from("tarea_preguntas").delete().eq("tarea_id", id);
+  if (deleteError) throw new Error(deleteError.message);
+  await guardarPreguntasTarea(supabase, id, preguntas);
 
   revalidatePath("/portal/tareas");
   revalidatePath(`/portal/tareas/${id}/editar`);

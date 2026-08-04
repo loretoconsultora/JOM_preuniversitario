@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { materiasGestionables } from "@/lib/materias-gestionables";
 import type { Tema } from "@/types/database";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { PreguntasTareaEditor } from "@/components/preguntas-tarea-editor";
 import { crearTarea } from "../actions";
 
 export default async function NuevaTareaPage() {
@@ -26,7 +27,11 @@ export default async function NuevaTareaPage() {
       </Link>
 
       <div className="glass rounded-2xl p-6 sm:p-8">
-        <h1 className="mb-6 text-xl font-semibold">Nueva tarea</h1>
+        <h1 className="mb-1 text-xl font-semibold">Nueva tarea</h1>
+        <p className="text-muted mb-6 text-xs">
+          El alumno siempre podrá subir evidencia (fotos JPG/PNG/HEIC, PDF o Word) para esta tarea; además puedes
+          pedir una respuesta de texto y/o agregar preguntas.
+        </p>
         <form action={crearTarea} className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
           <div className="flex flex-col gap-4">
             <label className="flex flex-col gap-1.5 text-sm">
@@ -72,6 +77,19 @@ export default async function NuevaTareaPage() {
             <div className="flex flex-col gap-1.5 text-sm">
               Instrucciones
               <RichTextEditor name="descripcion" placeholder="Instrucciones para el alumno (opcional)" />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="pide_respuesta_texto" className="h-4 w-4 rounded accent-jom-ink" />
+              Pedir respuesta de texto (tipo foro/actividad)
+            </label>
+
+            <div>
+              <p className="mb-2 text-sm font-medium">Preguntas (opcional)</p>
+              <p className="text-muted mb-2 text-xs">
+                Opción múltiple se autocalifica al instante; abierta la revisas tú manualmente.
+              </p>
+              <PreguntasTareaEditor />
             </div>
           </div>
 

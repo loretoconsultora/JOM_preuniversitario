@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, Paperclip, Trash2 } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Materia, Tarea, TareaArchivo, Tema } from "@/types/database";
+import { materiasGestionables } from "@/lib/materias-gestionables";
+import type { PreguntaBorrador, Tarea, TareaArchivo, TareaPregunta, Tema } from "@/types/database";
 import { TAREAS_BUCKET, formatBytes } from "@/lib/storage";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { PreguntasTareaEditor } from "@/components/preguntas-tarea-editor";
 import { actualizarTarea, eliminarArchivoTarea } from "../../actions";
 
 export default async function EditarTareaPage({
@@ -13,22 +15,29 @@ export default async function EditarTareaPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireDocente();
+  const profile = await requireDocente();
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: tarea }, { data: materias }, { data: archivos }, { data: temas }] = await Promise.all([
-    supabase.from("tareas").select("*").eq("id", id).single(),
-    supabase.from("materias").select("*").order("nombre"),
-    supabase.from("tarea_archivos").select("*").eq("tarea_id", id),
-    supabase.from("temas").select("*").order("orden"),
-  ]);
+  const [{ data: tarea }, materiasList, { data: archivos }, { data: temas }, { data: preguntas }] =
+    await Promise.all([
+      supabase.from("tareas").select("*").eq("id", id).single(),
+      materiasGestionables(supabase, profile.id),
+      supabase.from("tarea_archivos").select("*").eq("tarea_id", id),
+      supabase.from("temas").select("*").order("orden"),
+      supabase.from("tarea_preguntas").select("*").eq("tarea_id", id).order("orden"),
+    ]);
 
   if (!tarea) notFound();
   const tareaData = tarea as Tarea;
-  const materiasList = (materias ?? []) as Materia[];
   const archivosList = (archivos ?? []) as TareaArchivo[];
   const temasList = (temas ?? []) as Tema[];
+  const preguntasIniciales: PreguntaBorrador[] = ((preguntas ?? []) as TareaPregunta[]).map((p) => ({
+    tipo: p.tipo,
+    enunciado: p.enunciado,
+    opciones: p.opciones ?? ["", "", "", ""],
+    respuesta_correcta: p.respuesta_correcta ?? 0,
+  }));
 
   const signedUrlByPath = new Map<string, string>();
   if (archivosList.length > 0) {
@@ -104,6 +113,24 @@ export default async function EditarTareaPage({
                 defaultValue={tareaData.descripcion ?? ""}
                 placeholder="Instrucciones para el alumno (opcional)"
               />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="pide_respuesta_texto"
+                defaultChecked={tareaData.pide_respuesta_texto}
+                className="h-4 w-4 rounded accent-jom-ink"
+              />
+              Pedir respuesta de texto (tipo foro/actividad)
+            </label>
+
+            <div>
+              <p className="mb-2 text-sm font-medium">Preguntas (opcional)</p>
+              <p className="text-muted mb-2 text-xs">
+                Opción múltiple se autocalifica al instante; abierta la revisas tú manualmente.
+              </p>
+              <PreguntasTareaEditor inicial={preguntasIniciales} />
             </div>
           </div>
 

@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { Plus, Trash2, Pencil, CalendarDays, GraduationCap, Paperclip, Download } from "lucide-react";
+import { Plus, Trash2, Pencil, CalendarDays, GraduationCap, Paperclip, Download, FileCheck2 } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { materiasGestionables } from "@/lib/materias-gestionables";
-import type { Calificacion, Materia, Tarea, TareaArchivo } from "@/types/database";
-import { TAREAS_BUCKET, formatBytes } from "@/lib/storage";
+import type { Calificacion, Materia, Tarea, TareaArchivo, TareaEntrega, TareaEntregaArchivo, TareaIntento } from "@/types/database";
+import { TAREAS_BUCKET, TAREAS_ENTREGAS_BUCKET, formatBytes } from "@/lib/storage";
+import { EntregaTareaSection } from "@/components/entrega-tarea-section";
 import { eliminarTarea } from "./actions";
 
 function formatFecha(fecha: string | null) {
@@ -78,6 +80,66 @@ export default async function TareasPage() {
       const set = calificadosPorTarea.get(cal.tarea_id) ?? new Set<string>();
       set.add(cal.alumno_id);
       calificadosPorTarea.set(cal.tarea_id, set);
+    }
+  }
+
+  // tarea_preguntas es de solo-lectura para staff (evita filtrar la
+  // respuesta correcta a los alumnos); un alumno solo necesita saber si
+  // existen preguntas para esa tarea, así que se consulta con el cliente
+  // admin (nunca se exponen enunciados/opciones al cliente en esta página).
+  const tareaIdsConPreguntas = new Set<string>();
+  const entregaPorTarea = new Map<string, TareaEntrega>();
+  const archivosEntregaPorEntrega = new Map<string, { id: string; nombre_archivo: string; tamano_bytes: number | null; url: string | null }[]>();
+  const intentoPorTarea = new Map<string, TareaIntento>();
+
+  if (!isStaff && tareaIds.length > 0) {
+    const admin = createAdminClient();
+    const [{ data: preguntasTareaIds }, { data: misEntregas }, { data: misIntentos }] = await Promise.all([
+      admin.from("tarea_preguntas").select("tarea_id").in("tarea_id", tareaIds),
+      supabase.from("tarea_entregas").select("*").eq("alumno_id", profile.id),
+      supabase.from("tarea_intentos").select("*").eq("alumno_id", profile.id),
+    ]);
+    for (const p of preguntasTareaIds ?? []) tareaIdsConPreguntas.add(p.tarea_id as string);
+    for (const e of (misEntregas ?? []) as TareaEntrega[]) entregaPorTarea.set(e.tarea_id, e);
+    for (const i of (misIntentos ?? []) as TareaIntento[]) intentoPorTarea.set(i.tarea_id, i);
+
+    const entregaIds = [...entregaPorTarea.values()].map((e) => e.id);
+    if (entregaIds.length > 0) {
+      const { data: misArchivos } = await supabase
+        .from("tarea_entrega_archivos")
+        .select("*")
+        .in("entrega_id", entregaIds);
+      const misArchivosList = (misArchivos ?? []) as TareaEntregaArchivo[];
+      const signedUrlEntregaByPath = new Map<string, string>();
+      if (misArchivosList.length > 0) {
+        const { data: signedUrls } = await supabase.storage
+          .from(TAREAS_ENTREGAS_BUCKET)
+          .createSignedUrls(
+            misArchivosList.map((a) => a.storage_path),
+            3600
+          );
+        for (const s of signedUrls ?? []) {
+          if (s.signedUrl) signedUrlEntregaByPath.set(s.path ?? "", s.signedUrl);
+        }
+      }
+      for (const a of misArchivosList) {
+        const list = archivosEntregaPorEntrega.get(a.entrega_id) ?? [];
+        list.push({
+          id: a.id,
+          nombre_archivo: a.nombre_archivo,
+          tamano_bytes: a.tamano_bytes,
+          url: signedUrlEntregaByPath.get(a.storage_path) ?? null,
+        });
+        archivosEntregaPorEntrega.set(a.entrega_id, list);
+      }
+    }
+  }
+
+  const entregasPorTarea = new Map<string, number>();
+  if (isStaff && tareaIds.length > 0) {
+    const { data: entregasTodas } = await supabase.from("tarea_entregas").select("tarea_id").in("tarea_id", tareaIds);
+    for (const e of entregasTodas ?? []) {
+      entregasPorTarea.set(e.tarea_id, (entregasPorTarea.get(e.tarea_id) ?? 0) + 1);
     }
   }
 
@@ -207,6 +269,31 @@ export default async function TareasPage() {
                     </Link>
                   )}
                 </div>
+
+                {isStaff && (
+                  <Link
+                    href={`/portal/tareas/${tarea.id}/entregas`}
+                    className="text-muted inline-flex w-fit items-center gap-1.5 text-xs hover:text-fg"
+                  >
+                    <FileCheck2 size={13} /> Ver entregas ({entregasPorTarea.get(tarea.id) ?? 0})
+                  </Link>
+                )}
+
+                {!isStaff && (
+                  <EntregaTareaSection
+                    tareaId={tarea.id}
+                    alumnoId={profile.id}
+                    archivosIniciales={
+                      entregaPorTarea.has(tarea.id)
+                        ? (archivosEntregaPorEntrega.get(entregaPorTarea.get(tarea.id)!.id) ?? [])
+                        : []
+                    }
+                    pideRespuestaTexto={tarea.pide_respuesta_texto}
+                    respuestaTextoInicial={entregaPorTarea.get(tarea.id)?.respuesta_texto ?? ""}
+                    tienePreguntas={tareaIdsConPreguntas.has(tarea.id)}
+                    intentoInicial={intentoPorTarea.get(tarea.id) ?? null}
+                  />
+                )}
               </div>
             );
           })}

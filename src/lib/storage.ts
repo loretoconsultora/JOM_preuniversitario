@@ -1,4 +1,5 @@
 export const TAREAS_BUCKET = "tareas-adjuntos";
+export const TAREAS_ENTREGAS_BUCKET = "tareas-entregas";
 export const RECURSOS_BUCKET = "recursos-adjuntos";
 export const TEMARIO_BUCKET = "temario-adjuntos";
 export const AVATARES_BUCKET = "avatares";

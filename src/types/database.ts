@@ -22,6 +22,7 @@ export type Tarea = {
   titulo: string;
   descripcion: string | null;
   fecha_entrega: string | null;
+  pide_respuesta_texto: boolean;
   creado_por: string;
   created_at: string;
 };
@@ -60,30 +61,34 @@ export type Examen = {
   created_at: string;
 };
 
+export type TipoPregunta = "multiple" | "abierta";
+
 export type ExamenPregunta = {
   id: string;
   examen_id: string;
   orden: number;
+  tipo: TipoPregunta;
   enunciado: string;
-  opciones: string[];
-  respuesta_correcta: number;
+  opciones: string[] | null;
+  respuesta_correcta: number | null;
   created_at: string;
 };
 
 export type ExamenPreguntaAlumno = {
   id: string;
+  tipo: TipoPregunta;
   enunciado: string;
-  opciones: string[];
+  opciones: string[] | null;
 };
 
 export type ExamenIntento = {
   id: string;
   examen_id: string;
   alumno_id: string;
-  respuestas: Record<string, number>;
+  respuestas: Record<string, number | string>;
   aciertos: number;
   total: number;
-  calificacion: number;
+  calificacion: number | null;
   created_at: string;
 };
 
@@ -93,7 +98,9 @@ export type ExamenAlumno = {
   alumno_id: string;
 };
 
+// opciones/respuesta_correcta se ignoran cuando tipo === "abierta".
 export type PreguntaBorrador = {
+  tipo: TipoPregunta;
   enunciado: string;
   opciones: string[];
   respuesta_correcta: number;
@@ -256,4 +263,52 @@ export type TemaImportado = {
   titulo: string;
   descripcion: string;
   subtemas: SubtemaImportado[];
+};
+
+export type TareaEntrega = {
+  id: string;
+  tarea_id: string;
+  alumno_id: string;
+  respuesta_texto: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TareaEntregaArchivo = {
+  id: string;
+  entrega_id: string;
+  storage_path: string;
+  nombre_archivo: string;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  created_at: string;
+};
+
+export type TareaPregunta = {
+  id: string;
+  tarea_id: string;
+  orden: number;
+  tipo: TipoPregunta;
+  enunciado: string;
+  opciones: string[] | null;
+  respuesta_correcta: number | null;
+  created_at: string;
+};
+
+export type TareaPreguntaAlumno = {
+  id: string;
+  tipo: TipoPregunta;
+  enunciado: string;
+  opciones: string[] | null;
+};
+
+export type TareaIntento = {
+  id: string;
+  tarea_id: string;
+  alumno_id: string;
+  respuestas: Record<string, number | string>;
+  aciertos: number;
+  total: number;
+  calificacion: number | null;
+  created_at: string;
 };

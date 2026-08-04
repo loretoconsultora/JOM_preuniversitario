@@ -11,7 +11,7 @@ const CSV_TEMPLATE = `enunciado,opcion_a,opcion_b,opcion_c,opcion_d,respuesta_co
 `;
 
 function preguntaVacia(): PreguntaBorrador {
-  return { enunciado: "", opciones: ["", "", "", ""], respuesta_correcta: 0 };
+  return { tipo: "multiple", enunciado: "", opciones: ["", "", "", ""], respuesta_correcta: 0 };
 }
 
 export function ExamenBuilder({
@@ -68,6 +68,10 @@ export function ExamenBuilder({
 
   function marcarCorrecta(pIndex: number, oIndex: number) {
     setPreguntas((prev) => prev.map((p, i) => (i === pIndex ? { ...p, respuesta_correcta: oIndex } : p)));
+  }
+
+  function cambiarTipo(pIndex: number, tipo: PreguntaBorrador["tipo"]) {
+    setPreguntas((prev) => prev.map((p, i) => (i === pIndex ? { ...p, tipo } : p)));
   }
 
   function agregarOpcion(pIndex: number) {
@@ -363,6 +367,32 @@ export function ExamenBuilder({
                   <Trash2 size={14} />
                 </button>
               </div>
+
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => cambiarTipo(pIndex, "multiple")}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    pregunta.tipo === "multiple"
+                      ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink"
+                      : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+                  }`}
+                >
+                  Opción múltiple
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cambiarTipo(pIndex, "abierta")}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    pregunta.tipo === "abierta"
+                      ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink"
+                      : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+                  }`}
+                >
+                  Abierta
+                </button>
+              </div>
+
               <textarea
                 value={pregunta.enunciado}
                 onChange={(e) => actualizarEnunciado(pIndex, e.target.value)}
@@ -370,45 +400,54 @@ export function ExamenBuilder({
                 rows={2}
                 className={inputClass}
               />
-              <div className="flex flex-col gap-2">
-                {pregunta.opciones.map((opcion, oIndex) => (
-                  <div key={oIndex} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name={`correcta-${pIndex}`}
-                      checked={pregunta.respuesta_correcta === oIndex}
-                      onChange={() => marcarCorrecta(pIndex, oIndex)}
-                      aria-label={`Marcar opción ${oIndex + 1} como correcta`}
-                    />
-                    <input
-                      value={opcion}
-                      onChange={(e) => actualizarOpcion(pIndex, oIndex, e.target.value)}
-                      placeholder={`Opción ${oIndex + 1}`}
-                      className={`${inputClass} flex-1 py-2`}
-                    />
-                    {pregunta.opciones.length > 2 && (
+
+              {pregunta.tipo === "multiple" ? (
+                <>
+                  <div className="flex flex-col gap-2">
+                    {pregunta.opciones.map((opcion, oIndex) => (
+                      <div key={oIndex} className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`correcta-${pIndex}`}
+                          checked={pregunta.respuesta_correcta === oIndex}
+                          onChange={() => marcarCorrecta(pIndex, oIndex)}
+                          aria-label={`Marcar opción ${oIndex + 1} como correcta`}
+                        />
+                        <input
+                          value={opcion}
+                          onChange={(e) => actualizarOpcion(pIndex, oIndex, e.target.value)}
+                          placeholder={`Opción ${oIndex + 1}`}
+                          className={`${inputClass} flex-1 py-2`}
+                        />
+                        {pregunta.opciones.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => eliminarOpcion(pIndex, oIndex)}
+                            aria-label="Eliminar opción"
+                            className="text-muted rounded-full p-1 hover:text-jom-ink"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {pregunta.opciones.length < 6 && (
                       <button
                         type="button"
-                        onClick={() => eliminarOpcion(pIndex, oIndex)}
-                        aria-label="Eliminar opción"
-                        className="text-muted rounded-full p-1 hover:text-jom-ink"
+                        onClick={() => agregarOpcion(pIndex)}
+                        className="text-muted w-fit text-xs underline underline-offset-2 hover:text-fg"
                       >
-                        <Trash2 size={13} />
+                        + Agregar opción
                       </button>
                     )}
                   </div>
-                ))}
-                {pregunta.opciones.length < 6 && (
-                  <button
-                    type="button"
-                    onClick={() => agregarOpcion(pIndex)}
-                    className="text-muted w-fit text-xs underline underline-offset-2 hover:text-fg"
-                  >
-                    + Agregar opción
-                  </button>
-                )}
-              </div>
-              <p className="text-muted text-xs">Marca con el círculo cuál opción es la correcta.</p>
+                  <p className="text-muted text-xs">Marca con el círculo cuál opción es la correcta.</p>
+                </>
+              ) : (
+                <p className="text-muted text-xs">
+                  El alumno responderá con texto libre. No se autocalifica: tú la revisas manualmente.
+                </p>
+              )}
             </div>
           ))}
         </div>

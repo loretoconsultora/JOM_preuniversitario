@@ -14,13 +14,21 @@ export function TomarExamenForm({
   preguntas: ExamenPreguntaAlumno[];
 }) {
   const router = useRouter();
-  const [respuestas, setRespuestas] = useState<Record<string, number>>({});
+  const [respuestas, setRespuestas] = useState<Record<string, number | string>>({});
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function faltanPorResponder() {
+    return preguntas.some((p) => {
+      const r = respuestas[p.id];
+      if (p.tipo === "abierta") return typeof r !== "string" || !r.trim();
+      return r === undefined;
+    });
+  }
+
   async function enviar() {
     setError(null);
-    if (Object.keys(respuestas).length < preguntas.length) {
+    if (faltanPorResponder()) {
       setError("Responde todas las preguntas antes de entregar.");
       return;
     }
@@ -41,22 +49,32 @@ export function TomarExamenForm({
           <p className="text-sm font-medium">
             {i + 1}. {pregunta.enunciado}
           </p>
-          <div className="mt-2 flex flex-col gap-1.5">
-            {pregunta.opciones.map((opcion, oIndex) => (
-              <label
-                key={oIndex}
-                className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-opacity hover:opacity-80"
-              >
-                <input
-                  type="radio"
-                  name={`pregunta-${pregunta.id}`}
-                  checked={respuestas[pregunta.id] === oIndex}
-                  onChange={() => setRespuestas((prev) => ({ ...prev, [pregunta.id]: oIndex }))}
-                />
-                {opcion}
-              </label>
-            ))}
-          </div>
+          {pregunta.tipo === "abierta" ? (
+            <textarea
+              value={typeof respuestas[pregunta.id] === "string" ? (respuestas[pregunta.id] as string) : ""}
+              onChange={(e) => setRespuestas((prev) => ({ ...prev, [pregunta.id]: e.target.value }))}
+              placeholder="Escribe tu respuesta"
+              rows={3}
+              className="glass mt-2 w-full rounded-xl px-3 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
+            />
+          ) : (
+            <div className="mt-2 flex flex-col gap-1.5">
+              {(pregunta.opciones ?? []).map((opcion, oIndex) => (
+                <label
+                  key={oIndex}
+                  className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-opacity hover:opacity-80"
+                >
+                  <input
+                    type="radio"
+                    name={`pregunta-${pregunta.id}`}
+                    checked={respuestas[pregunta.id] === oIndex}
+                    onChange={() => setRespuestas((prev) => ({ ...prev, [pregunta.id]: oIndex }))}
+                  />
+                  {opcion}
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       ))}
 
