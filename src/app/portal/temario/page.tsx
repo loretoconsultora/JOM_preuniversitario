@@ -5,7 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { materiasGestionables } from "@/lib/materias-gestionables";
 import { materiasInscritas } from "@/lib/materias-inscritas";
-import { TEMARIO_BUCKET } from "@/lib/storage";
+import { progresoPorMateria } from "@/lib/progreso-materia";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import type {
   Examen,
@@ -143,20 +143,6 @@ export default async function TemarioPage({
   const ejerciciosList = (ejercicios ?? []) as SubtemaEjercicio[];
   const videosList = (videos ?? []) as SubtemaVideo[];
 
-  const signedUrlByPath = new Map<string, string>();
-  if (archivosList.length > 0) {
-    const { data: signedUrls, error: eSigned } = await supabase.storage
-      .from(TEMARIO_BUCKET)
-      .createSignedUrls(
-        archivosList.map((a) => a.storage_path),
-        3600
-      );
-    if (eSigned) throw new Error(`signed urls: ${eSigned.message}`);
-    for (const s of signedUrls ?? []) {
-      if (s.signedUrl) signedUrlByPath.set(s.path ?? "", s.signedUrl);
-    }
-  }
-
   const archivosPorTema = new Map<string, TemaArchivo[]>();
   for (const a of archivosList) {
     const list = archivosPorTema.get(a.tema_id) ?? [];
@@ -290,7 +276,7 @@ export default async function TemarioPage({
                         <ArchivoPreview
                           key={archivo.id}
                           nombre={archivo.nombre_archivo}
-                          url={signedUrlByPath.get(archivo.storage_path) ?? "#"}
+                          url={`/portal/temario/archivo/${archivo.id}/abrir`}
                           tipoMime={archivo.tipo_mime}
                           tamanoBytes={archivo.tamano_bytes}
                           accent={{ background: accent.archivoBackground, border: accent.archivoBorder }}
@@ -419,38 +405,49 @@ async function renderPortada(
 
   const materiaIds = materiasList.map((m) => m.id);
 
-  const { data: allTemas, error: eAllTemas } =
-    materiaIds.length > 0
-      ? await supabase.from("temas").select("id, materia_id").in("materia_id", materiaIds)
-      : { data: [] as { id: string; materia_id: string }[], error: null };
-  if (eAllTemas) throw new Error(`temas: ${eAllTemas.message}`);
-  const allTemasList = allTemas ?? [];
-  const allTemaIds = allTemasList.map((t) => t.id);
+  // Para el alumno, la barra mide su avance real (archivos que abrió, tareas
+  // que entregó/presentó, exámenes que respondió). Para docente/directora,
+  // que no "cursan" la materia, se mantiene el indicador de qué tanto
+  // contenido ya cargó el docente — no aplica medir su propia actividad.
+  let progresoMap: Map<string, { total: number; completos: number; pct: number }>;
 
-  const [{ data: allArchivos, error: eAllArchivos }, { data: allSubtemas, error: eAllSubtemas }] =
-    allTemaIds.length > 0
-      ? await Promise.all([
-          supabase.from("tema_archivos").select("tema_id").in("tema_id", allTemaIds),
-          supabase.from("subtemas").select("tema_id").in("tema_id", allTemaIds),
-        ])
-      : [
-          { data: [] as { tema_id: string }[], error: null },
-          { data: [] as { tema_id: string }[], error: null },
-        ];
-  if (eAllArchivos) throw new Error(`tema_archivos: ${eAllArchivos.message}`);
-  if (eAllSubtemas) throw new Error(`subtemas: ${eAllSubtemas.message}`);
+  if (role === "alumno") {
+    progresoMap = await progresoPorMateria(supabase, alumnoId, materiaIds);
+  } else {
+    const { data: allTemas, error: eAllTemas } =
+      materiaIds.length > 0
+        ? await supabase.from("temas").select("id, materia_id").in("materia_id", materiaIds)
+        : { data: [] as { id: string; materia_id: string }[], error: null };
+    if (eAllTemas) throw new Error(`temas: ${eAllTemas.message}`);
+    const allTemasList = allTemas ?? [];
+    const allTemaIds = allTemasList.map((t) => t.id);
 
-  const temasConContenido = new Set<string>();
-  for (const a of allArchivos ?? []) temasConContenido.add(a.tema_id);
-  for (const s of allSubtemas ?? []) temasConContenido.add(s.tema_id);
+    const [{ data: allArchivos, error: eAllArchivos }, { data: allSubtemas, error: eAllSubtemas }] =
+      allTemaIds.length > 0
+        ? await Promise.all([
+            supabase.from("tema_archivos").select("tema_id").in("tema_id", allTemaIds),
+            supabase.from("subtemas").select("tema_id").in("tema_id", allTemaIds),
+          ])
+        : [
+            { data: [] as { tema_id: string }[], error: null },
+            { data: [] as { tema_id: string }[], error: null },
+          ];
+    if (eAllArchivos) throw new Error(`tema_archivos: ${eAllArchivos.message}`);
+    if (eAllSubtemas) throw new Error(`subtemas: ${eAllSubtemas.message}`);
 
-  const progresoPorMateria = new Map<string, { total: number; completos: number; pct: number }>();
-  for (const m of materiasList) {
-    const temasMateria = allTemasList.filter((t) => t.materia_id === m.id);
-    const completos = temasMateria.filter((t) => temasConContenido.has(t.id)).length;
-    const total = temasMateria.length;
-    const pct = total > 0 ? Math.round((completos / total) * 100) : 0;
-    progresoPorMateria.set(m.id, { total, completos, pct });
+    const temasConContenido = new Set<string>();
+    for (const a of allArchivos ?? []) temasConContenido.add(a.tema_id);
+    for (const s of allSubtemas ?? []) temasConContenido.add(s.tema_id);
+
+    const contenidoMap = new Map<string, { total: number; completos: number; pct: number }>();
+    for (const m of materiasList) {
+      const temasMateria = allTemasList.filter((t) => t.materia_id === m.id);
+      const completos = temasMateria.filter((t) => temasConContenido.has(t.id)).length;
+      const total = temasMateria.length;
+      const pct = total > 0 ? Math.round((completos / total) * 100) : 0;
+      contenidoMap.set(m.id, { total, completos, pct });
+    }
+    progresoMap = contenidoMap;
   }
 
   return (
@@ -467,7 +464,7 @@ async function renderPortada(
 
       <div className="grid gap-4 sm:grid-cols-3">
         {materiasList.map((m) => {
-          const progreso = progresoPorMateria.get(m.id) ?? { total: 0, completos: 0, pct: 0 };
+          const progreso = progresoMap.get(m.id) ?? { total: 0, completos: 0, pct: 0 };
           return (
             <div key={m.id} className="relative">
               {isDocente && <MateriaBannerUpload materiaId={m.id} />}
@@ -492,8 +489,12 @@ async function renderPortada(
                   </div>
                   <p className="text-xs text-white/80">
                     {progreso.total === 0
-                      ? "Sin temas cargados todavía"
-                      : `${progreso.completos} de ${progreso.total} temas con material`}
+                      ? role === "alumno"
+                        ? "Aún no hay actividades para medir tu avance"
+                        : "Sin temas cargados todavía"
+                      : role === "alumno"
+                        ? `${progreso.completos} de ${progreso.total} temas avanzados`
+                        : `${progreso.completos} de ${progreso.total} temas con material`}
                   </p>
                 </div>
               </Link>

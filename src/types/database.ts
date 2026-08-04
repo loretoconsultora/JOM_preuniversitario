@@ -148,6 +148,13 @@ export type TemaArchivo = {
   created_at: string;
 };
 
+export type TemaArchivoVista = {
+  id: string;
+  archivo_id: string;
+  alumno_id: string;
+  created_at: string;
+};
+
 export type Subtema = {
   id: string;
   tema_id: string;
