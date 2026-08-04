@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { User } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { esDocenteAcotado } from "@/lib/materias-gestionables";
+import type { Role } from "@/types/database";
 import { JomLogo } from "@/components/jom-logo";
 import { PortalNav } from "@/components/portal-nav";
+import { VistaSwitcher } from "@/components/vista-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SignOutButton } from "@/components/sign-out-button";
 
@@ -21,8 +24,13 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const profile = await requireProfile();
-  const acotado =
-    profile.role === "docente" ? await esDocenteAcotado(await createClient(), profile.id) : false;
+
+  const rolesEfectivos = Array.from(new Set([profile.role, ...(profile.roles ?? [])])) as Role[];
+  const cookieStore = await cookies();
+  const vistaCookie = cookieStore.get("vista_activa")?.value as Role | undefined;
+  const vista = vistaCookie && rolesEfectivos.includes(vistaCookie) ? vistaCookie : profile.role;
+
+  const acotado = vista === "docente" ? await esDocenteAcotado(await createClient(), profile.id) : false;
 
   return (
     <div className="min-h-screen">
@@ -31,17 +39,18 @@ export default async function PortalLayout({
           <div className="flex min-w-0 items-center gap-6">
             <JomLogo className="h-9 w-auto shrink-0" />
             <div className="min-w-0 overflow-x-auto">
-              <PortalNav role={profile.role} acotado={acotado} />
+              <PortalNav role={vista} acotado={acotado} />
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            {rolesEfectivos.length > 1 && <VistaSwitcher roles={rolesEfectivos} vistaActual={vista} />}
             <Link
               href="/portal/perfil"
               className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-80"
             >
               <div className="hidden text-right sm:block">
                 <p className="whitespace-nowrap text-sm font-medium leading-tight">{profile.nombre_completo}</p>
-                <p className="text-muted whitespace-nowrap text-xs leading-tight">{ROLE_LABEL[profile.role]}</p>
+                <p className="text-muted whitespace-nowrap text-xs leading-tight">{ROLE_LABEL[vista]}</p>
               </div>
               <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full">
                 {profile.avatar_url ? (

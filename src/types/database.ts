@@ -3,6 +3,7 @@ export type Role = "alumno" | "docente" | "directora" | "terapeuta";
 export type Profile = {
   id: string;
   role: Role;
+  roles: Role[];
   nombre_completo: string;
   avatar_url: string | null;
   created_at: string;
