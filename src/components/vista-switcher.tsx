@@ -34,7 +34,7 @@ export function VistaSwitcher({ roles, vistaActual }: { roles: Role[]; vistaActu
         disabled={pendiente}
         className="text-muted flex items-center gap-1 whitespace-nowrap text-xs hover:text-fg disabled:opacity-60"
       >
-        Viendo como: {ROLE_LABEL[vistaActual]} <ChevronDown size={12} />
+        Vista {ROLE_LABEL[vistaActual]} <ChevronDown size={12} />
       </button>
       {abierto && (
         <div className="glass-strong absolute right-0 top-full z-20 mt-1 flex flex-col gap-0.5 rounded-xl p-1.5">
