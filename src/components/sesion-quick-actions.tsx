@@ -6,6 +6,7 @@ import { CalendarClock, Pencil } from "lucide-react";
 import { marcarAsistencia, guardarNotaSesion, reagendarSesion } from "@/app/portal/pacientes/actions";
 import type { EstadoSesion } from "@/types/database";
 import { ESTADO_LABEL, ESTADO_CLASS } from "@/lib/estado-sesion";
+import { RichTextEditor } from "@/components/rich-text-editor";
 
 export function SesionQuickActions({
   sesionId,
@@ -21,6 +22,7 @@ export function SesionQuickActions({
   const router = useRouter();
   const [estado, setEstado] = useState<EstadoSesion>(estadoInicial);
   const [nota, setNota] = useState(notaInicial ?? "");
+  const [notaBorrador, setNotaBorrador] = useState(notaInicial ?? "");
   const [mostrarNota, setMostrarNota] = useState(false);
   const [mostrarReagendar, setMostrarReagendar] = useState(false);
   const [nuevaFecha, setNuevaFecha] = useState("");
@@ -47,7 +49,8 @@ export function SesionQuickActions({
     setCargando(true);
     setError(null);
     try {
-      await guardarNotaSesion(sesionId, nota);
+      await guardarNotaSesion(sesionId, notaBorrador);
+      setNota(notaBorrador);
       setMostrarNota(false);
       router.refresh();
     } catch (e) {
@@ -128,12 +131,12 @@ export function SesionQuickActions({
 
       {mostrarNota && (
         <div className="flex flex-col gap-1.5">
-          <textarea
-            value={nota}
-            onChange={(e) => setNota(e.target.value)}
-            rows={2}
+          <RichTextEditor
+            name="nota_sesion"
+            defaultValue={nota}
             placeholder="Nota de la sesión (privada)"
-            className="glass rounded-xl px-3 py-2 text-xs placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
+            minHeightClass="min-h-[4rem]"
+            onChange={setNotaBorrador}
           />
           <div className="flex gap-2">
             <button
@@ -180,7 +183,9 @@ export function SesionQuickActions({
         </div>
       )}
 
-      {!mostrarNota && estado === "asistio" && nota && <p className="text-muted whitespace-pre-line text-xs">{nota}</p>}
+      {!mostrarNota && estado === "asistio" && nota && (
+        <div className="rich-content text-muted text-xs" dangerouslySetInnerHTML={{ __html: nota }} />
+      )}
 
       {error && <p className="text-xs text-red-500">{error}</p>}
     </div>

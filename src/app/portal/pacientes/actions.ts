@@ -35,13 +35,12 @@ export async function crearPaciente(formData: FormData) {
 
 export async function agregarNotaPaciente(pacienteId: string, contenido: string) {
   const profile = await requireTerapeuta();
-  const texto = contenido.trim();
-  if (!texto) throw new Error("Escribe una nota.");
+  if (!contenido) throw new Error("Escribe una nota.");
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("paciente_notas")
-    .insert({ paciente_id: pacienteId, contenido: texto, creado_por: profile.id });
+    .insert({ paciente_id: pacienteId, contenido, creado_por: profile.id });
   if (error) throw new Error(error.message);
 
   revalidatePath(`/portal/pacientes/${pacienteId}`);
@@ -140,7 +139,7 @@ export async function guardarNotaSesion(sesionId: string, nota: string) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("paciente_sesiones")
-    .update({ nota: nota.trim() || null })
+    .update({ nota: nota || null })
     .eq("id", sesionId);
   if (error) throw new Error(error.message);
   revalidatePath("/portal/asistencia");

@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { CalendarCheck } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { SesionQuickActions } from "@/components/sesion-quick-actions";
+import { DescargarReportePDF } from "@/components/descargar-reporte-pdf";
 import type { EstadoSesion, Paciente } from "@/types/database";
 
 type SesionConPaciente = {
@@ -73,7 +75,7 @@ export default async function AsistenciaPage({
 }: {
   searchParams: Promise<{ vista?: string }>;
 }) {
-  await requireTerapeuta();
+  const profile = await requireTerapeuta();
   const { vista: vistaParam } = await searchParams;
   const vista = vistaParam === "paciente" ? "paciente" : "calendario";
   const supabase = await createClient();
@@ -84,6 +86,11 @@ export default async function AsistenciaPage({
   const hace7dias = new Date(ahora.getTime() - 1000 * 60 * 60 * 24 * 7).toISOString().slice(0, 10);
   const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString().slice(0, 10);
   const finMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const mesTerminado = hoy === finMes;
+  const mesLabelCapitalizado = (() => {
+    const raw = ahora.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  })();
 
   const [{ data: sesiones, error }, { data: pacientes }] = await Promise.all([
     supabase
@@ -97,6 +104,30 @@ export default async function AsistenciaPage({
 
   const sesionesList = (sesiones ?? []) as unknown as SesionConPaciente[];
   const pacientesList = (pacientes ?? []) as Paciente[];
+
+  // Cada sesión cuenta en un solo balde según su estado actual: una
+  // completada/reprogramada/cancelada deja de contarse como programada.
+  const filasMes = pacientesList.map((p) => {
+    const delPacienteMes = sesionesList.filter(
+      (s) => s.paciente_id === p.id && s.fecha >= inicioMes && s.fecha <= finMes
+    );
+    return {
+      nombre: p.nombre,
+      programadas: delPacienteMes.filter((s) => s.estado === "pendiente").length,
+      completadas: delPacienteMes.filter((s) => s.estado === "asistio").length,
+      reprogramadas: delPacienteMes.filter((s) => s.estado === "reagendada").length,
+      canceladas: delPacienteMes.filter((s) => s.estado === "no_asistio").length,
+    };
+  });
+  const totalesMes = filasMes.reduce(
+    (acc, f) => ({
+      programadas: acc.programadas + f.programadas,
+      completadas: acc.completadas + f.completadas,
+      reprogramadas: acc.reprogramadas + f.reprogramadas,
+      canceladas: acc.canceladas + f.canceladas,
+    }),
+    { programadas: 0, completadas: 0, reprogramadas: 0, canceladas: 0 }
+  );
 
   const tabClass = (activo: boolean) =>
     `rounded-full px-4 py-2 text-sm font-medium transition-colors ${
@@ -142,6 +173,43 @@ export default async function AsistenciaPage({
                 hoy={hoy}
                 vacio="No hay sesiones registradas en los últimos 7 días."
               />
+
+              <div className="flex flex-col gap-3">
+                <p className="text-sm font-semibold">Último mes ({mesLabelCapitalizado})</p>
+                <div className="glass grid grid-cols-2 gap-3 rounded-2xl p-5 sm:grid-cols-4">
+                  <div>
+                    <p className="text-muted text-xs uppercase">Programadas</p>
+                    <p className="text-xl font-semibold">{totalesMes.programadas}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted text-xs uppercase">Completadas</p>
+                    <p className="text-xl font-semibold">{totalesMes.completadas}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted text-xs uppercase">Reprogramadas</p>
+                    <p className="text-xl font-semibold">{totalesMes.reprogramadas}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted text-xs uppercase">Canceladas</p>
+                    <p className="text-xl font-semibold">{totalesMes.canceladas}</p>
+                  </div>
+                </div>
+              </div>
+
+              {mesTerminado && (
+                <div className="glass-strong flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-jom-yellow p-5">
+                  <div className="flex items-center gap-3">
+                    <CalendarCheck size={18} className="shrink-0 text-jom-ink dark:text-jom-yellow" />
+                    <p className="text-sm font-medium">Descargar reporte de sesiones por paciente de {mesLabelCapitalizado}</p>
+                  </div>
+                  <DescargarReportePDF
+                    terapeuta={profile.nombre_completo}
+                    mesLabel={mesLabelCapitalizado}
+                    filas={filasMes}
+                    totales={totalesMes}
+                  />
+                </div>
+              )}
             </>
           );
         })()

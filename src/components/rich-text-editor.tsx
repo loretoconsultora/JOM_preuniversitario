@@ -12,10 +12,14 @@ export function RichTextEditor({
   name,
   defaultValue = "",
   placeholder,
+  minHeightClass = "min-h-[8rem]",
+  onChange,
 }: {
   name: string;
   defaultValue?: string;
   placeholder?: string;
+  minHeightClass?: string;
+  onChange?: (html: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,11 +41,13 @@ export function RichTextEditor({
     content: defaultValue,
     editorProps: {
       attributes: {
-        class: "rich-editor-content min-h-[8rem] rounded-b-xl px-4 py-3 text-sm focus:outline-none",
+        class: `rich-editor-content ${minHeightClass} rounded-b-xl px-4 py-3 text-sm focus:outline-none`,
       },
     },
     onUpdate: ({ editor }) => {
-      if (inputRef.current) inputRef.current.value = editor.isEmpty ? "" : editor.getHTML();
+      const html = editor.isEmpty ? "" : editor.getHTML();
+      if (inputRef.current) inputRef.current.value = html;
+      onChange?.(html);
     },
   });
 
