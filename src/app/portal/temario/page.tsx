@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { ArrowLeft, Plus, Trash2, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
+import { ArrowLeft, Plus, Sparkles, Trash2, LinkIcon, ChevronDown, ClipboardList, FileQuestion } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { materiasGestionables } from "@/lib/materias-gestionables";
 import { TEMARIO_BUCKET } from "@/lib/storage";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import type {
@@ -59,11 +60,17 @@ export default async function TemarioPage({
   const isDocente = profile.role === "docente";
   const supabase = await createClient();
 
-  const { data: materias, error: eMaterias } = await supabase.from("materias").select("*").order("nombre");
-  if (eMaterias) throw new Error(`materias: ${eMaterias.message}`);
-  const materiasList = (materias ?? []) as Materia[];
+  let materiasList: Materia[];
+  if (isDocente) {
+    materiasList = await materiasGestionables(supabase, profile.id);
+  } else {
+    const { data: materias, error: eMaterias } = await supabase.from("materias").select("*").order("nombre");
+    if (eMaterias) throw new Error(`materias: ${eMaterias.message}`);
+    materiasList = (materias ?? []) as Materia[];
+  }
 
-  if (!materiaSeleccionadaParam) {
+  const materiaValida = materiaSeleccionadaParam && materiasList.some((m) => m.id === materiaSeleccionadaParam);
+  if (!materiaValida) {
     return renderPortada(supabase, materiasList, isDocente);
   }
   const materiaSeleccionada = materiaSeleccionadaParam;
@@ -198,6 +205,12 @@ export default async function TemarioPage({
           <div className="flex items-center gap-2">
             <SubirMaterialModal materias={materiasList} materiaInicialId={materiaSeleccionada} />
             <Link
+              href="/portal/temario/importar"
+              className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+            >
+              <Sparkles size={15} /> Importar con IA
+            </Link>
+            <Link
               href="/portal/temario/nuevo"
               className="inline-flex items-center gap-1.5 rounded-full bg-jom-ink px-4 py-2.5 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
             >
@@ -205,22 +218,6 @@ export default async function TemarioPage({
             </Link>
           </div>
         )}
-      </div>
-
-      <div className="flex gap-1.5">
-        {materiasList.map((m) => (
-          <Link
-            key={m.id}
-            href={`/portal/temario?materia=${m.id}`}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              m.id === materiaSeleccionada
-                ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink"
-                : "glass text-fg/70 hover:opacity-80"
-            }`}
-          >
-            {m.nombre}
-          </Link>
-        ))}
       </div>
 
       {temasList.length === 0 ? (

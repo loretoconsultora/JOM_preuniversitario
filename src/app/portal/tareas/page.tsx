@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Trash2, Pencil, CalendarDays, GraduationCap, Paperclip, Download } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { materiasGestionables } from "@/lib/materias-gestionables";
 import type { Calificacion, Materia, Tarea, TareaArchivo } from "@/types/database";
 import { TAREAS_BUCKET, formatBytes } from "@/lib/storage";
 import { eliminarTarea } from "./actions";
@@ -21,19 +22,21 @@ export default async function TareasPage() {
   const isDocente = profile.role === "docente";
   const isStaff = profile.role === "docente" || profile.role === "directora";
 
-  const [{ data: materias }, { data: tareas }, { data: calificaciones }, alumnosCountResult] =
-    await Promise.all([
-      supabase.from("materias").select("*").order("nombre"),
-      supabase.from("tareas").select("*").order("fecha_entrega", { ascending: true, nullsFirst: false }),
-      // RLS ya filtra: el alumno solo ve las suyas, docente/directora ven todas.
-      supabase.from("calificaciones").select("*").not("tarea_id", "is", null),
-      isStaff
-        ? supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "alumno")
-        : Promise.resolve({ count: 0 }),
-    ]);
+  const [{ data: materias }, { data: tareas }, { data: calificaciones }, alumnosCountResult] = await Promise.all([
+    supabase.from("materias").select("*").order("nombre"),
+    supabase.from("tareas").select("*").order("fecha_entrega", { ascending: true, nullsFirst: false }),
+    // RLS ya filtra: el alumno solo ve las suyas, docente/directora ven todas.
+    supabase.from("calificaciones").select("*").not("tarea_id", "is", null),
+    isStaff
+      ? supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "alumno")
+      : Promise.resolve({ count: 0 }),
+  ]);
 
-  const materiasList = (materias ?? []) as Materia[];
-  const tareasList = (tareas ?? []) as Tarea[];
+  const materiasList = isDocente
+    ? await materiasGestionables(supabase, profile.id)
+    : ((materias ?? []) as Materia[]);
+  const materiaIds = new Set(materiasList.map((m) => m.id));
+  const tareasList = ((tareas ?? []) as Tarea[]).filter((t) => materiaIds.has(t.materia_id));
   const calificacionesList = (calificaciones ?? []) as Calificacion[];
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));
   const totalAlumnos = alumnosCountResult.count ?? 0;

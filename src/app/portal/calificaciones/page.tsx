@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Trash2, Pencil, ClipboardCheck, GraduationCap } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { materiasGestionables } from "@/lib/materias-gestionables";
 import type { Calificacion, Materia, Profile } from "@/types/database";
 import { eliminarCalificacion } from "./actions";
 
@@ -27,8 +28,11 @@ export default async function CalificacionesPage() {
       : Promise.resolve({ data: [] as Profile[] }),
   ]);
 
-  const calificacionesList = (calificaciones ?? []) as Calificacion[];
-  const materiasList = (materias ?? []) as Materia[];
+  const materiasList = isDocente
+    ? await materiasGestionables(supabase, profile.id)
+    : ((materias ?? []) as Materia[]);
+  const materiaIds = new Set(materiasList.map((m) => m.id));
+  const calificacionesList = ((calificaciones ?? []) as Calificacion[]).filter((c) => materiaIds.has(c.materia_id));
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));
   const alumnoById = new Map(((alumnosResult.data ?? []) as Profile[]).map((a) => [a.id, a]));
 

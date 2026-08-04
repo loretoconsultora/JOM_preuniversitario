@@ -248,3 +248,11 @@ export type SubtemaBorrador = {
   ejercicios: EjercicioBorrador[];
   videos: VideoBorrador[];
 };
+
+export type SubtemaImportado = { titulo: string; detalle: string };
+
+export type TemaImportado = {
+  titulo: string;
+  descripcion: string;
+  subtemas: SubtemaImportado[];
+};

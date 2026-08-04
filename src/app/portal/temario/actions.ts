@@ -5,7 +5,9 @@ import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TEMARIO_BUCKET, MATERIA_BANNERS_BUCKET } from "@/lib/storage";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
-import type { SubtemaBorrador } from "@/types/database";
+import { createAnthropicClient } from "@/lib/anthropic";
+import { extraerContenidoArchivo } from "@/lib/extraer-texto-archivo";
+import type { SubtemaBorrador, TemaImportado } from "@/types/database";
 
 function normalizarUrl(url: string) {
   const trimmed = url.trim();
@@ -206,6 +208,135 @@ export async function eliminarTema(id: string) {
   const { error } = await supabase.from("temas").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/portal/temario");
+}
+
+export async function extraerTemarioConIA(formData: FormData): Promise<{ temas: TemaImportado[] }> {
+  await requireDocente();
+
+  const file = formData.get("archivo");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Selecciona un archivo.");
+  if (file.size > 15 * 1024 * 1024) throw new Error("El archivo no puede pesar más de 15 MB.");
+
+  const contenido = await extraerContenidoArchivo(file);
+
+  const instrucciones =
+    "Analiza el documento adjunto, que contiene el temario de un curso o taller. Extrae su estructura completa " +
+    "como una lista de TEMAS (unidades o módulos principales) y, dentro de cada uno, sus SUBTEMAS. Conserva el " +
+    "texto original de los títulos lo más fiel posible (no traduzcas ni resumas de más). Si un subtema tiene una " +
+    'lista de puntos numerados (ej. "1.1.1 ..., 1.1.2 ..."), ponlos juntos en "detalle" separados por punto y ' +
+    "coma. Si el documento no tiene una jerarquía clara de temas/subtemas, agrupa el contenido de la forma más " +
+    "razonable posible. No inventes contenido que no esté en el documento.";
+
+  const client = createAnthropicClient();
+  const response = await client.messages.create({
+    model: "claude-opus-5",
+    max_tokens: 8192,
+    messages: [
+      {
+        role: "user",
+        content:
+          contenido.tipo === "pdf"
+            ? [
+                {
+                  type: "document" as const,
+                  source: { type: "base64" as const, media_type: "application/pdf" as const, data: contenido.base64 },
+                },
+                { type: "text" as const, text: instrucciones },
+              ]
+            : [{ type: "text" as const, text: `${instrucciones}\n\n--- CONTENIDO DEL DOCUMENTO ---\n${contenido.texto}` }],
+      },
+    ],
+    output_config: {
+      format: {
+        type: "json_schema",
+        schema: {
+          type: "object",
+          properties: {
+            temas: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  titulo: { type: "string" },
+                  descripcion: { type: "string" },
+                  subtemas: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        titulo: { type: "string" },
+                        detalle: { type: "string" },
+                      },
+                      required: ["titulo", "detalle"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["titulo", "descripcion", "subtemas"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["temas"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("La IA no devolvió una respuesta válida.");
+  }
+
+  const parsed = JSON.parse(textBlock.text) as { temas: TemaImportado[] };
+  if (!parsed.temas || parsed.temas.length === 0) {
+    throw new Error("No se pudo identificar ningún tema en el documento.");
+  }
+  return parsed;
+}
+
+export async function crearTemasImportados(materiaId: string, temas: TemaImportado[]) {
+  const profile = await requireDocente();
+  if (!materiaId) throw new Error("Selecciona una materia.");
+  if (temas.length === 0) throw new Error("No hay temas para guardar.");
+
+  const supabase = await createClient();
+
+  const { data: existentes } = await supabase
+    .from("temas")
+    .select("orden")
+    .eq("materia_id", materiaId)
+    .order("orden", { ascending: false })
+    .limit(1);
+  let orden = (existentes?.[0]?.orden ?? -1) + 1;
+
+  for (const tema of temas) {
+    const titulo = tema.titulo.trim();
+    if (!titulo) continue;
+
+    const { data: temaCreado, error } = await supabase
+      .from("temas")
+      .insert({
+        titulo,
+        descripcion: tema.descripcion.trim() || null,
+        materia_id: materiaId,
+        orden,
+        creado_por: profile.id,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    orden += 1;
+
+    const subtemas: SubtemaBorrador[] = tema.subtemas
+      .filter((s) => s.titulo.trim())
+      .map((s) => ({ titulo: s.titulo.trim(), detalle: s.detalle.trim(), ejercicios: [], videos: [] }));
+    await guardarSubtemas(supabase, temaCreado.id, subtemas, profile.id);
+  }
+
+  revalidatePath("/portal/temario");
+  return { count: temas.length };
 }
 
 export async function subirBannerMateria(materiaId: string, formData: FormData) {

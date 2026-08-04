@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Trash2, GraduationCap, FileQuestion, Users } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { materiasGestionables } from "@/lib/materias-gestionables";
 import type { Examen, ExamenAlumno, ExamenIntento, Materia } from "@/types/database";
 import { eliminarExamen } from "./actions";
 
@@ -24,8 +25,11 @@ export default async function ExamenesPage() {
       isStaff ? supabase.from("examen_alumnos").select("*") : Promise.resolve({ data: [] }),
     ]);
 
-  const materiasList = (materias ?? []) as Materia[];
-  const examenesList = (examenes ?? []) as Examen[];
+  const materiasList = isDocente
+    ? await materiasGestionables(supabase, profile.id)
+    : ((materias ?? []) as Materia[]);
+  const materiaIds = new Set(materiasList.map((m) => m.id));
+  const examenesList = ((examenes ?? []) as Examen[]).filter((e) => materiaIds.has(e.materia_id));
   const intentosList = (intentos ?? []) as ExamenIntento[];
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));
   const totalAlumnos = alumnosCountResult.count ?? 0;
