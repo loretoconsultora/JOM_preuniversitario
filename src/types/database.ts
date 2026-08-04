@@ -341,3 +341,14 @@ export type ClaseAsistencia = {
   alumno_id: string;
   presente: boolean;
 };
+
+export type NotificacionDocente = {
+  id: string;
+  docente_id: string;
+  mensaje: string;
+  materia_id: string | null;
+  tarea_id: string | null;
+  examen_id: string | null;
+  leida: boolean;
+  created_at: string;
+};

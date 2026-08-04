@@ -57,7 +57,13 @@ async function notificarSiEsPrimeraVez(
   const { data: tarea } = await supabase.from("tareas").select("materia_id, titulo").eq("id", tareaId).single();
   if (!tarea) return;
   await supabase.from("tarea_entregas").update({ notificado: true }).eq("id", entregaId);
-  await notificarDocentesEntrega({ materiaId: tarea.materia_id, alumnoNombre, tipo: "tarea", titulo: tarea.titulo });
+  await notificarDocentesEntrega({
+    materiaId: tarea.materia_id,
+    alumnoNombre,
+    tipo: "tarea",
+    titulo: tarea.titulo,
+    tareaId,
+  });
 }
 
 export async function registrarArchivoEntrega(
@@ -212,6 +218,7 @@ export async function entregarPreguntasTarea(tareaId: string, respuestas: Record
       alumnoNombre: profile.nombre_completo,
       tipo: "tarea",
       titulo: tarea.titulo,
+      tareaId,
     });
   }
 

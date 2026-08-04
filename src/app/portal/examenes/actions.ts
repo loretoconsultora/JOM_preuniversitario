@@ -300,6 +300,7 @@ export async function entregarExamen(examenId: string, respuestas: Record<string
       alumnoNombre: profile.nombre_completo,
       tipo: "examen",
       titulo: examen.titulo,
+      examenId,
     });
   }
 

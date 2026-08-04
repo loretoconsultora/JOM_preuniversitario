@@ -34,22 +34,38 @@ export async function notificarDocentesEntrega(opts: {
   alumnoNombre: string;
   tipo: "tarea" | "examen";
   titulo: string;
+  tareaId?: string;
+  examenId?: string;
 }) {
-  // Sin RESEND_API_KEY configurada en el entorno, no hace nada (no rompe
-  // el flujo de entrega del alumno).
-  if (!resend) return;
-
   try {
     const docentes = await docentesDeMateria(opts.materiaId);
     if (docentes.length === 0) return;
 
+    const esTarea = opts.tipo === "tarea";
     const admin = createAdminClient();
+
+    // Notificación in-app: siempre, no depende de tener correo
+    // configurado — así el docente se entera desde la campanita del
+    // portal aunque no se haya configurado Resend todavía.
+    const mensaje = `${opts.alumnoNombre} ${esTarea ? "entregó la tarea" : "presentó el examen"} "${opts.titulo}"`;
+    await admin.from("notificaciones_docente").insert(
+      docentes.map((d) => ({
+        docente_id: d.id,
+        mensaje,
+        materia_id: opts.materiaId,
+        tarea_id: esTarea ? (opts.tareaId ?? null) : null,
+        examen_id: esTarea ? null : (opts.examenId ?? null),
+      }))
+    );
+
+    // Correo (opcional): solo si RESEND_API_KEY está configurada.
+    if (!resend) return;
+
     const { data: usuarios } = await admin.auth.admin.listUsers({ perPage: 1000 });
     const emailPorId = new Map(usuarios?.users.map((u) => [u.id, u.email ?? null]) ?? []);
     const destinatarios = docentes.map((d) => emailPorId.get(d.id)).filter((e): e is string => Boolean(e));
     if (destinatarios.length === 0) return;
 
-    const esTarea = opts.tipo === "tarea";
     const asunto = `${opts.alumnoNombre} entregó ${esTarea ? "la tarea" : "el examen"} "${opts.titulo}"`;
     const enlace = `${SITE_URL}/portal/${esTarea ? "tareas" : "examenes"}`;
     const html = `
@@ -61,6 +77,6 @@ export async function notificarDocentesEntrega(opts: {
     await resend.emails.send({ from: FROM, to: destinatarios, subject: asunto, html });
   } catch (e) {
     // Un fallo al notificar nunca debe tumbar la entrega del alumno.
-    console.error("No se pudo enviar la notificación de entrega:", e);
+    console.error("No se pudo notificar la entrega:", e);
   }
 }

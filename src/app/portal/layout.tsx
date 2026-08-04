@@ -4,12 +4,13 @@ import { User } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { esDocenteAcotado } from "@/lib/materias-gestionables";
-import type { Role } from "@/types/database";
+import type { NotificacionDocente, Role } from "@/types/database";
 import { JomLogo } from "@/components/jom-logo";
 import { PortalNav } from "@/components/portal-nav";
 import { VistaSwitcher } from "@/components/vista-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SignOutButton } from "@/components/sign-out-button";
+import { NotificacionesBell } from "@/components/notificaciones-bell";
 
 const ROLE_LABEL: Record<string, string> = {
   alumno: "Alumno",
@@ -30,7 +31,20 @@ export default async function PortalLayout({
   const vistaCookie = cookieStore.get("vista_activa")?.value as Role | undefined;
   const vista = vistaCookie && rolesEfectivos.includes(vistaCookie) ? vistaCookie : profile.role;
 
-  const acotado = vista === "docente" ? await esDocenteAcotado(await createClient(), profile.id) : false;
+  const supabase = await createClient();
+  const acotado = vista === "docente" ? await esDocenteAcotado(supabase, profile.id) : false;
+
+  const notificacionesIniciales: NotificacionDocente[] =
+    vista === "docente"
+      ? ((
+          await supabase
+            .from("notificaciones_docente")
+            .select("*")
+            .eq("docente_id", profile.id)
+            .order("created_at", { ascending: false })
+            .limit(20)
+        ).data ?? [])
+      : [];
 
   return (
     <div className="min-h-screen">
@@ -43,6 +57,7 @@ export default async function PortalLayout({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            {vista === "docente" && <NotificacionesBell notificacionesIniciales={notificacionesIniciales} />}
             {rolesEfectivos.length > 1 && <VistaSwitcher roles={rolesEfectivos} vistaActual={vista} />}
             <Link
               href="/portal/perfil"
