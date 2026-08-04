@@ -3,8 +3,14 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { marcarNotificacionLeida, marcarTodasNotificacionesLeidas } from "@/app/portal/notificaciones-actions";
-import type { NotificacionDocente } from "@/types/database";
+
+export type NotificacionItem = {
+  id: string;
+  mensaje: string;
+  leida: boolean;
+  created_at: string;
+  href: string;
+};
 
 function formatRelativo(fechaISO: string) {
   const minutos = Math.round((Date.now() - new Date(fechaISO).getTime()) / 60000);
@@ -16,7 +22,18 @@ function formatRelativo(fechaISO: string) {
   return `hace ${dias} d`;
 }
 
-export function NotificacionesBell({ notificacionesIniciales }: { notificacionesIniciales: NotificacionDocente[] }) {
+// Campanita de notificaciones genérica — se le pasan las acciones de
+// servidor para marcar como leída (docente/alumno tienen sus propias
+// tablas), así el componente no necesita saber cuál es el rol.
+export function NotificacionesBell({
+  notificacionesIniciales,
+  marcarLeidaAction,
+  marcarTodasAction,
+}: {
+  notificacionesIniciales: NotificacionItem[];
+  marcarLeidaAction: (id: string) => Promise<void>;
+  marcarTodasAction: () => Promise<void>;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [notificaciones, setNotificaciones] = useState(notificacionesIniciales);
   const [, startTransition] = useTransition();
@@ -26,14 +43,14 @@ export function NotificacionesBell({ notificacionesIniciales }: { notificaciones
   function marcarLeida(id: string) {
     setNotificaciones((prev) => prev.map((n) => (n.id === id ? { ...n, leida: true } : n)));
     startTransition(() => {
-      marcarNotificacionLeida(id);
+      marcarLeidaAction(id);
     });
   }
 
   function marcarTodas() {
     setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
     startTransition(() => {
-      marcarTodasNotificacionesLeidas();
+      marcarTodasAction();
     });
   }
 
@@ -73,34 +90,27 @@ export function NotificacionesBell({ notificacionesIniciales }: { notificaciones
               {notificaciones.length === 0 ? (
                 <p className="text-muted p-4 text-center text-xs">Sin notificaciones todavía.</p>
               ) : (
-                notificaciones.map((n) => {
-                  const href = n.tarea_id
-                    ? `/portal/tareas#tarea-${n.tarea_id}`
-                    : n.examen_id
-                      ? `/portal/examenes/${n.examen_id}`
-                      : "/portal/tareas";
-                  return (
-                    <Link
-                      key={n.id}
-                      href={href}
-                      onClick={() => {
-                        if (!n.leida) marcarLeida(n.id);
-                        setAbierto(false);
-                      }}
-                      className={`flex items-start gap-2 border-b border-black/5 px-4 py-3 text-xs last:border-0 hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5 ${
-                        n.leida ? "text-muted" : "font-medium"
-                      }`}
-                    >
-                      {!n.leida && <span className="bg-jom-pink mt-1 h-1.5 w-1.5 shrink-0 rounded-full" />}
-                      <span className="flex-1">
-                        {n.mensaje}
-                        <span className="text-muted mt-0.5 block text-[10px] font-normal">
-                          {formatRelativo(n.created_at)}
-                        </span>
+                notificaciones.map((n) => (
+                  <Link
+                    key={n.id}
+                    href={n.href}
+                    onClick={() => {
+                      if (!n.leida) marcarLeida(n.id);
+                      setAbierto(false);
+                    }}
+                    className={`flex items-start gap-2 border-b border-black/5 px-4 py-3 text-xs last:border-0 hover:bg-black/5 dark:border-white/5 dark:hover:bg-white/5 ${
+                      n.leida ? "text-muted" : "font-medium"
+                    }`}
+                  >
+                    {!n.leida && <span className="bg-jom-pink mt-1 h-1.5 w-1.5 shrink-0 rounded-full" />}
+                    <span className="flex-1">
+                      {n.mensaje}
+                      <span className="text-muted mt-0.5 block text-[10px] font-normal">
+                        {formatRelativo(n.created_at)}
                       </span>
-                    </Link>
-                  );
-                })
+                    </span>
+                  </Link>
+                ))
               )}
             </div>
           </div>

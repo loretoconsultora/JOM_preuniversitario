@@ -49,19 +49,31 @@ export async function crearCalificacion(formData: FormData) {
     throw new Error("Materia y título son obligatorios (o selecciona una tarea o examen).");
   }
 
+  const calificacion = calificacionRaw ? Number(calificacionRaw) : null;
+
   const { error } = await supabase.from("calificaciones").insert({
     alumno_id,
     materia_id,
     titulo,
     tarea_id: tarea_id || null,
     examen_id: examen_id || null,
-    calificacion: calificacionRaw ? Number(calificacionRaw) : null,
+    calificacion,
     comentario: comentario || null,
     fecha: fecha || new Date().toISOString().slice(0, 10),
     creado_por: profile.id,
   });
 
   if (error) throw new Error(error.message);
+
+  if (calificacion !== null) {
+    await supabase.from("notificaciones_alumno").insert({
+      alumno_id,
+      mensaje: `Fuiste calificado en "${titulo}": ${calificacion}`,
+      materia_id,
+      tarea_id: tarea_id || null,
+      examen_id: examen_id || null,
+    });
+  }
 
   revalidatePath("/portal/calificaciones");
   revalidatePath("/portal/tareas");
@@ -79,18 +91,32 @@ export async function actualizarCalificacion(id: string, formData: FormData) {
   if (!titulo) throw new Error("El título es obligatorio.");
   if (!fecha) throw new Error("La fecha es obligatoria.");
 
+  const calificacion = calificacionRaw ? Number(calificacionRaw) : null;
+
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: actualizada, error } = await supabase
     .from("calificaciones")
     .update({
       titulo,
-      calificacion: calificacionRaw ? Number(calificacionRaw) : null,
+      calificacion,
       comentario: comentario || null,
       fecha,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("alumno_id, materia_id, tarea_id, examen_id")
+    .single();
 
   if (error) throw new Error(error.message);
+
+  if (calificacion !== null && actualizada) {
+    await supabase.from("notificaciones_alumno").insert({
+      alumno_id: actualizada.alumno_id,
+      mensaje: `Fuiste calificado en "${titulo}": ${calificacion}`,
+      materia_id: actualizada.materia_id,
+      tarea_id: actualizada.tarea_id,
+      examen_id: actualizada.examen_id,
+    });
+  }
 
   revalidatePath("/portal/calificaciones");
   revalidatePath("/portal/tareas");

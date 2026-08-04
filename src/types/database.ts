@@ -352,3 +352,14 @@ export type NotificacionDocente = {
   leida: boolean;
   created_at: string;
 };
+
+export type NotificacionAlumno = {
+  id: string;
+  alumno_id: string;
+  mensaje: string;
+  materia_id: string | null;
+  tarea_id: string | null;
+  examen_id: string | null;
+  leida: boolean;
+  created_at: string;
+};

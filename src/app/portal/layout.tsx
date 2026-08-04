@@ -4,13 +4,21 @@ import { User } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { esDocenteAcotado } from "@/lib/materias-gestionables";
-import type { NotificacionDocente, Role } from "@/types/database";
+import { sesionesTerapiaHoy } from "@/lib/sesiones-hoy-alumno";
+import type { Role } from "@/types/database";
 import { JomLogo } from "@/components/jom-logo";
 import { PortalNav } from "@/components/portal-nav";
 import { VistaSwitcher } from "@/components/vista-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SignOutButton } from "@/components/sign-out-button";
-import { NotificacionesBell } from "@/components/notificaciones-bell";
+import { NotificacionesBell, type NotificacionItem } from "@/components/notificaciones-bell";
+import { SesionHoyBanner } from "@/components/sesion-hoy-banner";
+import {
+  marcarNotificacionDocenteLeida,
+  marcarTodasNotificacionesDocenteLeidas,
+  marcarNotificacionAlumnoLeida,
+  marcarTodasNotificacionesAlumnoLeidas,
+} from "./notificaciones-actions";
 
 const ROLE_LABEL: Record<string, string> = {
   alumno: "Alumno",
@@ -34,17 +42,52 @@ export default async function PortalLayout({
   const supabase = await createClient();
   const acotado = vista === "docente" ? await esDocenteAcotado(supabase, profile.id) : false;
 
-  const notificacionesIniciales: NotificacionDocente[] =
-    vista === "docente"
-      ? ((
-          await supabase
-            .from("notificaciones_docente")
-            .select("*")
-            .eq("docente_id", profile.id)
-            .order("created_at", { ascending: false })
-            .limit(20)
-        ).data ?? [])
-      : [];
+  let notificacionesDocente: NotificacionItem[] = [];
+  if (vista === "docente") {
+    const { data } = await supabase
+      .from("notificaciones_docente")
+      .select("*")
+      .eq("docente_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    notificacionesDocente = (data ?? []).map((n) => ({
+      id: n.id,
+      mensaje: n.mensaje,
+      leida: n.leida,
+      created_at: n.created_at,
+      href: n.tarea_id
+        ? `/portal/tareas#tarea-${n.tarea_id}`
+        : n.examen_id
+          ? `/portal/examenes/${n.examen_id}`
+          : "/portal/tareas",
+    }));
+  }
+
+  let notificacionesAlumno: NotificacionItem[] = [];
+  let sesionesHoy: Awaited<ReturnType<typeof sesionesTerapiaHoy>> = [];
+  if (vista === "alumno") {
+    const [{ data: notifData }, sesiones] = await Promise.all([
+      supabase
+        .from("notificaciones_alumno")
+        .select("*")
+        .eq("alumno_id", profile.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      sesionesTerapiaHoy(profile.id),
+    ]);
+    notificacionesAlumno = (notifData ?? []).map((n) => ({
+      id: n.id,
+      mensaje: n.mensaje,
+      leida: n.leida,
+      created_at: n.created_at,
+      href: n.tarea_id
+        ? `/portal/tareas#tarea-${n.tarea_id}`
+        : n.examen_id
+          ? `/portal/examenes/${n.examen_id}`
+          : "/portal/calificaciones",
+    }));
+    sesionesHoy = sesiones;
+  }
 
   return (
     <div className="min-h-screen">
@@ -57,7 +100,20 @@ export default async function PortalLayout({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            {vista === "docente" && <NotificacionesBell notificacionesIniciales={notificacionesIniciales} />}
+            {vista === "docente" && (
+              <NotificacionesBell
+                notificacionesIniciales={notificacionesDocente}
+                marcarLeidaAction={marcarNotificacionDocenteLeida}
+                marcarTodasAction={marcarTodasNotificacionesDocenteLeidas}
+              />
+            )}
+            {vista === "alumno" && (
+              <NotificacionesBell
+                notificacionesIniciales={notificacionesAlumno}
+                marcarLeidaAction={marcarNotificacionAlumnoLeida}
+                marcarTodasAction={marcarTodasNotificacionesAlumnoLeidas}
+              />
+            )}
             {rolesEfectivos.length > 1 && <VistaSwitcher roles={rolesEfectivos} vistaActual={vista} />}
             <Link
               href="/portal/perfil"
@@ -83,6 +139,12 @@ export default async function PortalLayout({
           </div>
         </div>
       </header>
+
+      {vista === "alumno" && sesionesHoy.length > 0 && (
+        <div className="pt-4">
+          <SesionHoyBanner sesiones={sesionesHoy} />
+        </div>
+      )}
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
     </div>
