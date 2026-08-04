@@ -96,9 +96,16 @@ export default async function NuevaTareaPage() {
           <div className="flex flex-col gap-3">
             <details className="glass rounded-xl p-4" open>
               <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
-                <CalendarDays size={15} className="text-muted" /> Fecha de entrega
+                <CalendarDays size={15} className="text-muted" /> Fecha y hora límite de entrega
               </summary>
-              <input type="date" name="fecha_entrega" className={`${inputClass} mt-3 w-full`} />
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <input type="date" name="fecha_entrega" className={inputClass} />
+                <input type="time" name="hora_limite" className={inputClass} />
+              </div>
+              <p className="text-muted mt-1.5 text-xs">
+                Si no eliges hora, se cierra a las 11:59 p.m. de ese día. Pasada la hora límite, el alumno ya no
+                puede cargar entregas.
+              </p>
             </details>
 
             <details className="glass rounded-xl p-4" open>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Trash2, Upload, Loader2, AlertCircle, Sparkles } from "lucide-react";
+import { Paperclip, Trash2, Upload, Loader2, AlertCircle, Sparkles, Clock, Lock } from "lucide-react";
 import { subirArchivoEntrega } from "@/lib/subir-archivo-entrega";
 import {
   eliminarArchivoEntrega,
@@ -11,6 +11,7 @@ import {
   entregarPreguntasTarea,
 } from "@/app/portal/tareas/entrega-actions";
 import { formatBytes } from "@/lib/storage";
+import { tareaCerrada, leyendaTiempoRestante } from "@/lib/fecha-limite-tarea";
 import type { TareaIntento, TareaPreguntaAlumno } from "@/types/database";
 
 const FORMATOS_PERMITIDOS = ".jpg,.jpeg,.png,.heic,.pdf,.doc,.docx";
@@ -25,6 +26,8 @@ type ArchivoEvidencia = {
 export function EntregaTareaSection({
   tareaId,
   alumnoId,
+  fechaEntrega,
+  horaLimite,
   archivosIniciales,
   pideRespuestaTexto,
   respuestaTextoInicial,
@@ -33,6 +36,8 @@ export function EntregaTareaSection({
 }: {
   tareaId: string;
   alumnoId: string;
+  fechaEntrega: string | null;
+  horaLimite: string | null;
   archivosIniciales: ArchivoEvidencia[];
   pideRespuestaTexto: boolean;
   respuestaTextoInicial: string;
@@ -40,6 +45,17 @@ export function EntregaTareaSection({
   intentoInicial: TareaIntento | null;
 }) {
   const router = useRouter();
+  const tareaInfo = { fecha_entrega: fechaEntrega, hora_limite: horaLimite };
+
+  // Se recalcula cada minuto para que la cuenta regresiva y el cierre
+  // automático se reflejen sin que el alumno tenga que recargar la página.
+  const [ahora, setAhora] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setAhora(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+  const cerrada = tareaCerrada(tareaInfo, ahora);
+  const leyenda = leyendaTiempoRestante(tareaInfo, ahora);
 
   // Evidencia
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -152,6 +168,18 @@ export function EntregaTareaSection({
 
   return (
     <div className="mt-2 flex flex-col gap-4 border-t border-black/5 pt-3 dark:border-white/5">
+      {cerrada ? (
+        <p className="flex items-center gap-1.5 rounded-xl bg-black/5 px-3 py-2 text-xs font-medium text-muted dark:bg-white/10">
+          <Lock size={13} /> Entrega cerrada — ya pasó la fecha y hora límite.
+        </p>
+      ) : (
+        leyenda && (
+          <p className="flex items-center gap-1.5 rounded-xl bg-jom-yellow/30 px-3 py-2 text-xs font-medium text-jom-ink">
+            <Clock size={13} /> {leyenda}
+          </p>
+        )
+      )}
+
       {/* Evidencia en archivo */}
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium">Evidencia (evidencia de que completaste la tarea)</p>
@@ -164,31 +192,37 @@ export function EntregaTareaSection({
                   {a.nombre_archivo}
                 </a>
                 {a.tamano_bytes && <span className="text-muted shrink-0">{formatBytes(a.tamano_bytes)}</span>}
-                <button
-                  type="button"
-                  onClick={() => borrarArchivo(a.id)}
-                  aria-label="Eliminar archivo"
-                  className="text-muted shrink-0 rounded-full p-1 hover:bg-jom-pink/30 hover:text-jom-ink"
-                >
-                  <Trash2 size={13} />
-                </button>
+                {!cerrada && (
+                  <button
+                    type="button"
+                    onClick={() => borrarArchivo(a.id)}
+                    aria-label="Eliminar archivo"
+                    className="text-muted shrink-0 rounded-full p-1 hover:bg-jom-pink/30 hover:text-jom-ink"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
-        <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15">
-          {subiendo ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-          {subiendo ? "Subiendo…" : "Subir evidencia"}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept={FORMATOS_PERMITIDOS}
-            onChange={(e) => e.target.files && subirArchivos(e.target.files)}
-            className="hidden"
-          />
-        </label>
-        <p className="text-muted text-xs">Formatos permitidos: JPG, PNG, HEIC, PDF, Word (.doc, .docx). Puedes subir varios archivos.</p>
+        {!cerrada && (
+          <>
+            <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15">
+              {subiendo ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+              {subiendo ? "Subiendo…" : "Subir evidencia"}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={FORMATOS_PERMITIDOS}
+                onChange={(e) => e.target.files && subirArchivos(e.target.files)}
+                className="hidden"
+              />
+            </label>
+            <p className="text-muted text-xs">Formatos permitidos: JPG, PNG, HEIC, PDF, Word (.doc, .docx). Puedes subir varios archivos.</p>
+          </>
+        )}
         {errorArchivo && (
           <p className="flex items-center gap-1 text-xs text-red-500">
             <AlertCircle size={12} /> {errorArchivo}
@@ -207,22 +241,25 @@ export function EntregaTareaSection({
               setTextoGuardado(false);
             }}
             rows={3}
+            disabled={cerrada}
             placeholder="Escribe tu respuesta"
-            className="glass rounded-xl px-3 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
+            className="glass rounded-xl px-3 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink disabled:opacity-70"
           />
-          <button
-            type="button"
-            onClick={guardarTexto}
-            disabled={guardandoTexto}
-            className="w-fit rounded-full bg-jom-ink px-3.5 py-1.5 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
-          >
-            {guardandoTexto ? "Guardando…" : textoGuardado ? "Guardado ✓" : "Guardar respuesta"}
-          </button>
+          {!cerrada && (
+            <button
+              type="button"
+              onClick={guardarTexto}
+              disabled={guardandoTexto}
+              className="w-fit rounded-full bg-jom-ink px-3.5 py-1.5 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
+            >
+              {guardandoTexto ? "Guardando…" : textoGuardado ? "Guardado ✓" : "Guardar respuesta"}
+            </button>
+          )}
         </div>
       )}
 
       {/* Preguntas */}
-      {tienePreguntas && (
+      {tienePreguntas && (mostrarPreguntas || intento || !cerrada) && (
         <div className="flex flex-col gap-2">
           {!mostrarPreguntas ? (
             <button

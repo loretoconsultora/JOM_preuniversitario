@@ -3,8 +3,8 @@ import { ArrowLeft } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { materiasGestionables } from "@/lib/materias-gestionables";
-import type { Profile, Tarea } from "@/types/database";
-import { crearCalificacion } from "../actions";
+import type { Examen, Profile, Tarea, Tema } from "@/types/database";
+import { CalificacionForm } from "@/components/calificacion-form";
 
 export default async function NuevaCalificacionPage({
   searchParams,
@@ -14,15 +14,25 @@ export default async function NuevaCalificacionPage({
   const profile = await requireDocente();
   const { tarea_id: tareaIdPreseleccionada, alumno_id: alumnoIdPreseleccionado } = await searchParams;
   const supabase = await createClient();
-  const [materiasList, { data: alumnos }, { data: tareas }] = await Promise.all([
-    materiasGestionables(supabase, profile.id),
+  const materiasList = await materiasGestionables(supabase, profile.id);
+  const materiaIds = materiasList.map((m) => m.id);
+
+  const [{ data: alumnos }, { data: temas }, { data: tareas }, { data: examenes }] = await Promise.all([
     supabase.from("profiles").select("*").eq("role", "alumno").order("nombre_completo"),
-    supabase.from("tareas").select("*").order("created_at", { ascending: false }),
+    materiaIds.length > 0
+      ? supabase.from("temas").select("*").in("materia_id", materiaIds).order("orden")
+      : Promise.resolve({ data: [] as Tema[] }),
+    materiaIds.length > 0
+      ? supabase.from("tareas").select("*").in("materia_id", materiaIds).order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as Tarea[] }),
+    materiaIds.length > 0
+      ? supabase.from("examenes").select("*").in("materia_id", materiaIds).order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as Examen[] }),
   ]);
   const alumnosList = (alumnos ?? []) as Profile[];
-  const materiaIds = new Set(materiasList.map((m) => m.id));
-  const tareasList = ((tareas ?? []) as Tarea[]).filter((t) => materiaIds.has(t.materia_id));
-  const materiaById = new Map(materiasList.map((m) => [m.id, m]));
+  const temasList = (temas ?? []) as Tema[];
+  const tareasList = (tareas ?? []) as Tarea[];
+  const examenesList = (examenes ?? []) as Examen[];
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6">
@@ -42,107 +52,15 @@ export default async function NuevaCalificacionPage({
             .
           </p>
         ) : (
-          <form action={crearCalificacion} className="flex flex-col gap-4">
-            <label className="flex flex-col gap-1.5 text-sm">
-              Alumno
-              <select
-                name="alumno_id"
-                required
-                defaultValue={alumnoIdPreseleccionado ?? ""}
-                className="glass rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-jom-pink"
-              >
-                <option value="">Selecciona un alumno</option>
-                {alumnosList.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nombre_completo}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1.5 text-sm">
-              Tarea relacionada (opcional)
-              <select
-                name="tarea_id"
-                defaultValue={tareaIdPreseleccionada ?? ""}
-                className="glass rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-jom-pink"
-              >
-                <option value="">— Ninguna, es una evaluación aparte —</option>
-                {tareasList.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    [{materiaById.get(t.materia_id)?.nombre ?? "Materia"}] {t.titulo}
-                  </option>
-                ))}
-              </select>
-              <span className="text-muted text-xs">
-                Si eliges una tarea, la materia y el título se toman automáticamente de ella.
-              </span>
-            </label>
-
-            <label className="flex flex-col gap-1.5 text-sm">
-              Materia
-              <select
-                name="materia_id"
-                className="glass rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-jom-pink"
-              >
-                <option value="">Selecciona una materia (si no elegiste una tarea)</option>
-                {materiasList.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1.5 text-sm">
-              Título
-              <input
-                name="titulo"
-                placeholder="Ej. Examen parcial 1 (si no elegiste una tarea)"
-                className="glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
-              />
-            </label>
-
-            <div className="grid grid-cols-2 gap-4">
-              <label className="flex flex-col gap-1.5 text-sm">
-                Calificación
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  name="calificacion"
-                  placeholder="0-100"
-                  className="glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-sm">
-                Fecha
-                <input
-                  type="date"
-                  name="fecha"
-                  className="glass rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-jom-pink"
-                />
-              </label>
-            </div>
-
-            <label className="flex flex-col gap-1.5 text-sm">
-              Comentario
-              <textarea
-                name="comentario"
-                rows={3}
-                placeholder="Retroalimentación para el alumno (opcional)"
-                className="glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
-              />
-            </label>
-
-            <button
-              type="submit"
-              className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
-            >
-              Guardar calificación
-            </button>
-          </form>
+          <CalificacionForm
+            materias={materiasList}
+            temas={temasList}
+            tareas={tareasList}
+            examenes={examenesList}
+            alumnos={alumnosList}
+            tareaIdPreseleccionada={tareaIdPreseleccionada ?? null}
+            alumnoIdPreseleccionado={alumnoIdPreseleccionado ?? null}
+          />
         )}
       </div>
     </div>

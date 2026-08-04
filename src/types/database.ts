@@ -22,6 +22,7 @@ export type Tarea = {
   titulo: string;
   descripcion: string | null;
   fecha_entrega: string | null;
+  hora_limite: string | null;
   pide_respuesta_texto: boolean;
   creado_por: string;
   created_at: string;
@@ -36,6 +37,7 @@ export type Calificacion = {
   comentario: string | null;
   fecha: string;
   tarea_id: string | null;
+  examen_id: string | null;
   creado_por: string;
   created_at: string;
 };
@@ -279,6 +281,7 @@ export type TareaEntrega = {
   tarea_id: string;
   alumno_id: string;
   respuesta_texto: string | null;
+  notificado: boolean;
   created_at: string;
   updated_at: string;
 };

@@ -11,6 +11,8 @@ import {
   FileQuestion,
   FileText,
   Link2,
+  Paperclip,
+  GraduationCap,
 } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -18,8 +20,11 @@ import { materiasGestionables } from "@/lib/materias-gestionables";
 import { materiasInscritas } from "@/lib/materias-inscritas";
 import { progresoPorMateria } from "@/lib/progreso-materia";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
+import { TAREAS_ENTREGAS_BUCKET, formatBytes } from "@/lib/storage";
 import type {
+  Calificacion,
   Examen,
+  ExamenIntento,
   Materia,
   Recurso,
   Role,
@@ -27,6 +32,9 @@ import type {
   SubtemaEjercicio,
   SubtemaVideo,
   Tarea,
+  TareaEntrega,
+  TareaEntregaArchivo,
+  TareaIntento,
   Tema,
   TemaArchivo,
 } from "@/types/database";
@@ -197,6 +205,110 @@ export default async function TemarioPage({
     }
   }
 
+  // Para el alumno: sus propias entregas de las tareas/exámenes de esta
+  // materia, para mostrarlas junto al material del docente (con leyenda de
+  // quién subió qué y un resumen de la calificación).
+  type MiArchivoEntrega = { id: string; nombre_archivo: string; tamano_bytes: number | null; url: string | null };
+  type MiEntregaTarea = {
+    respuestaTexto: string | null;
+    calificacion: number | null;
+    archivos: MiArchivoEntrega[];
+    intento: { aciertos: number; total: number; calificacion: number | null } | null;
+  };
+  const misEntregaPorTarea = new Map<string, MiEntregaTarea>();
+  const misIntentoPorExamen = new Map<string, { aciertos: number; total: number; calificacion: number | null }>();
+
+  if (profile.role === "alumno") {
+    const tareaIdsVinc = tareasVinculadasList.map((t) => t.id);
+    const examenIdsVinc = examenesVinculadosList.map((e) => e.id);
+
+    const [{ data: misEntregas }, { data: misIntentosTarea }, { data: misCalifTareas }, { data: misIntentosExamen }] =
+      await Promise.all([
+        tareaIdsVinc.length > 0
+          ? supabase.from("tarea_entregas").select("*").eq("alumno_id", profile.id).in("tarea_id", tareaIdsVinc)
+          : Promise.resolve({ data: [] as TareaEntrega[] }),
+        tareaIdsVinc.length > 0
+          ? supabase.from("tarea_intentos").select("*").eq("alumno_id", profile.id).in("tarea_id", tareaIdsVinc)
+          : Promise.resolve({ data: [] as TareaIntento[] }),
+        tareaIdsVinc.length > 0
+          ? supabase.from("calificaciones").select("*").eq("alumno_id", profile.id).in("tarea_id", tareaIdsVinc)
+          : Promise.resolve({ data: [] as Calificacion[] }),
+        examenIdsVinc.length > 0
+          ? supabase.from("examen_intentos").select("*").eq("alumno_id", profile.id).in("examen_id", examenIdsVinc)
+          : Promise.resolve({ data: [] as ExamenIntento[] }),
+      ]);
+
+    const entregasList = (misEntregas ?? []) as TareaEntrega[];
+    const entregaIds = entregasList.map((e) => e.id);
+    const { data: misArchivosEntrega } =
+      entregaIds.length > 0
+        ? await supabase.from("tarea_entrega_archivos").select("*").in("entrega_id", entregaIds)
+        : { data: [] as TareaEntregaArchivo[] };
+    const archivosEntregaList = (misArchivosEntrega ?? []) as TareaEntregaArchivo[];
+
+    const signedUrlEntregaByPath = new Map<string, string>();
+    if (archivosEntregaList.length > 0) {
+      const { data: signedUrls } = await supabase.storage
+        .from(TAREAS_ENTREGAS_BUCKET)
+        .createSignedUrls(
+          archivosEntregaList.map((a) => a.storage_path),
+          3600
+        );
+      for (const s of signedUrls ?? []) {
+        if (s.signedUrl) signedUrlEntregaByPath.set(s.path ?? "", s.signedUrl);
+      }
+    }
+    const archivosPorEntrega = new Map<string, MiArchivoEntrega[]>();
+    for (const a of archivosEntregaList) {
+      const list = archivosPorEntrega.get(a.entrega_id) ?? [];
+      list.push({
+        id: a.id,
+        nombre_archivo: a.nombre_archivo,
+        tamano_bytes: a.tamano_bytes,
+        url: signedUrlEntregaByPath.get(a.storage_path) ?? null,
+      });
+      archivosPorEntrega.set(a.entrega_id, list);
+    }
+
+    const intentoTareaPorTareaId = new Map(
+      ((misIntentosTarea ?? []) as TareaIntento[]).map((i) => [i.tarea_id, i])
+    );
+    const calificacionPorTareaId = new Map(
+      ((misCalifTareas ?? []) as Calificacion[]).filter((c) => c.tarea_id).map((c) => [c.tarea_id as string, c])
+    );
+
+    for (const entrega of entregasList) {
+      const intento = intentoTareaPorTareaId.get(entrega.tarea_id);
+      misEntregaPorTarea.set(entrega.tarea_id, {
+        respuestaTexto: entrega.respuesta_texto,
+        calificacion: calificacionPorTareaId.get(entrega.tarea_id)?.calificacion ?? null,
+        archivos: archivosPorEntrega.get(entrega.id) ?? [],
+        intento: intento ? { aciertos: intento.aciertos, total: intento.total, calificacion: intento.calificacion } : null,
+      });
+    }
+    // Cubre también las tareas donde el alumno solo respondió el
+    // cuestionario, sin archivo ni texto (por lo que no hay fila en
+    // tarea_entregas).
+    for (const [tareaId, intento] of intentoTareaPorTareaId) {
+      if (!misEntregaPorTarea.has(tareaId)) {
+        misEntregaPorTarea.set(tareaId, {
+          respuestaTexto: null,
+          calificacion: calificacionPorTareaId.get(tareaId)?.calificacion ?? null,
+          archivos: [],
+          intento: { aciertos: intento.aciertos, total: intento.total, calificacion: intento.calificacion },
+        });
+      }
+    }
+
+    for (const intento of (misIntentosExamen ?? []) as ExamenIntento[]) {
+      misIntentoPorExamen.set(intento.examen_id, {
+        aciertos: intento.aciertos,
+        total: intento.total,
+        calificacion: intento.calificacion,
+      });
+    }
+  }
+
   const subtemasPorTema = new Map<string, Subtema[]>();
   for (const s of subtemasList) {
     const list = subtemasPorTema.get(s.tema_id) ?? [];
@@ -304,6 +416,9 @@ export default async function TemarioPage({
                 <div className="mt-4 flex flex-col gap-4">
                   {temaArchivos.length > 0 && (
                     <div className="flex flex-col gap-1.5">
+                      {profile.role === "alumno" && (
+                        <p className="text-muted text-xs font-medium">Subido por el docente</p>
+                      )}
                       {temaArchivos.map((archivo) => (
                         <ArchivoPreview
                           key={archivo.id}
@@ -348,6 +463,65 @@ export default async function TemarioPage({
                           {r.tipo === "archivo" ? <FileText size={12} /> : <Link2 size={12} />} {r.titulo}
                         </a>
                       ))}
+                    </div>
+                  )}
+
+                  {profile.role === "alumno" && (temaTareas.length > 0 || temaExamenes.length > 0) && (
+                    <div className="flex flex-col gap-2">
+                      {temaTareas
+                        .filter((t) => misEntregaPorTarea.has(t.id))
+                        .map((t) => {
+                          const entrega = misEntregaPorTarea.get(t.id)!;
+                          return (
+                            <div key={t.id} className="rounded-xl border border-dashed border-black/15 p-3 text-xs dark:border-white/20">
+                              <p className="font-medium">Tu entrega — {t.titulo}</p>
+                              {entrega.archivos.map((a) => (
+                                <a
+                                  key={a.id}
+                                  href={a.url ?? "#"}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-1 flex items-center gap-1.5 hover:underline"
+                                >
+                                  <Paperclip size={11} className="shrink-0" />
+                                  <span className="flex-1 truncate">{a.nombre_archivo}</span>
+                                  {a.tamano_bytes && <span className="text-muted shrink-0">{formatBytes(a.tamano_bytes)}</span>}
+                                </a>
+                              ))}
+                              {entrega.respuestaTexto && (
+                                <p className="mt-1 whitespace-pre-line text-muted">&ldquo;{entrega.respuestaTexto}&rdquo;</p>
+                              )}
+                              {entrega.intento && (
+                                <p className="mt-1 text-muted">
+                                  Cuestionario:{" "}
+                                  {entrega.intento.calificacion !== null
+                                    ? `${entrega.intento.calificacion}%`
+                                    : "pendiente de revisión"}
+                                </p>
+                              )}
+                              <p className="mt-1 flex items-center gap-1 font-medium">
+                                <GraduationCap size={12} />
+                                {entrega.calificacion !== null ? `Calificación: ${entrega.calificacion}` : "Sin calificar"}
+                              </p>
+                              <p className="text-muted mt-1">Subido por el alumno</p>
+                            </div>
+                          );
+                        })}
+                      {temaExamenes
+                        .filter((ex) => misIntentoPorExamen.has(ex.id))
+                        .map((ex) => {
+                          const intento = misIntentoPorExamen.get(ex.id)!;
+                          return (
+                            <div key={ex.id} className="rounded-xl border border-dashed border-black/15 p-3 text-xs dark:border-white/20">
+                              <p className="font-medium">Tu examen — {ex.titulo}</p>
+                              <p className="mt-1 flex items-center gap-1 text-muted">
+                                <GraduationCap size={12} />
+                                {intento.calificacion !== null ? `Calificación: ${intento.calificacion}%` : "Pendiente de revisión"}
+                              </p>
+                              <p className="text-muted mt-1">Subido por el alumno</p>
+                            </div>
+                          );
+                        })}
                     </div>
                   )}
 

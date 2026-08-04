@@ -8,19 +8,30 @@ import { materiasInscritas } from "@/lib/materias-inscritas";
 import type { Calificacion, Materia, Tarea, TareaArchivo, TareaEntrega, TareaEntregaArchivo, TareaIntento } from "@/types/database";
 import { TAREAS_BUCKET, TAREAS_ENTREGAS_BUCKET, formatBytes } from "@/lib/storage";
 import { EntregaTareaSection } from "@/components/entrega-tarea-section";
+import { MateriaSelector } from "@/components/materia-selector";
 import { eliminarTarea } from "./actions";
 
-function formatFecha(fecha: string | null) {
+function formatFecha(fecha: string | null, hora: string | null) {
   if (!fecha) return null;
-  return new Date(`${fecha}T00:00:00`).toLocaleDateString("es-MX", {
+  const fechaFmt = new Date(`${fecha}T00:00:00`).toLocaleDateString("es-MX", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+  const horaFmt = new Date(`${fecha}T${(hora ?? "23:59").slice(0, 5)}:00`).toLocaleTimeString("es-MX", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${fechaFmt}, ${horaFmt}`;
 }
 
-export default async function TareasPage() {
+export default async function TareasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ materia?: string }>;
+}) {
   const profile = await requireProfile();
+  const { materia: materiaParam } = await searchParams;
   const supabase = await createClient();
   const isDocente = profile.role === "docente";
   const isStaff = profile.role === "docente" || profile.role === "directora";
@@ -41,7 +52,21 @@ export default async function TareasPage() {
       ? await materiasInscritas(supabase, profile.id)
       : ((materias ?? []) as Materia[]);
   const materiaIds = new Set(materiasList.map((m) => m.id));
-  const tareasList = ((tareas ?? []) as Tarea[]).filter((t) => materiaIds.has(t.materia_id));
+
+  // Para docente/directora, el historial se organiza por materia (menú
+  // desplegable, igual que Asistencia): siempre una materia a la vez, en
+  // vez de mezclar tareas de todas juntas. Muestra las tareas de esa
+  // materia dejadas por cualquier docente, no solo las propias.
+  const materiaSeleccionada =
+    isStaff && materiasList.length > 0
+      ? materiaParam && materiaIds.has(materiaParam)
+        ? materiaParam
+        : materiasList[0].id
+      : null;
+
+  const tareasList = ((tareas ?? []) as Tarea[]).filter((t) =>
+    materiaSeleccionada ? t.materia_id === materiaSeleccionada : materiaIds.has(t.materia_id)
+  );
   const calificacionesList = (calificaciones ?? []) as Calificacion[];
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));
   const totalAlumnos = alumnosCountResult.count ?? 0;
@@ -151,7 +176,9 @@ export default async function TareasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Tareas</h1>
-          <p className="text-muted text-sm">Química, Física y Matemáticas</p>
+          <p className="text-muted text-sm">
+            {isStaff ? "Instrucciones y evidencia entregada por los alumnos" : "Tus tareas y su evidencia"}
+          </p>
         </div>
         {isDocente && (
           <Link
@@ -163,6 +190,14 @@ export default async function TareasPage() {
         )}
       </div>
 
+      {isStaff && materiasList.length > 1 && materiaSeleccionada && (
+        <MateriaSelector
+          materias={materiasList.map((m) => ({ id: m.id, nombre: m.nombre }))}
+          seleccionada={materiaSeleccionada}
+          basePath="/portal/tareas"
+        />
+      )}
+
       {tareasList.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center text-sm text-muted">
           {isDocente ? "Aún no has creado tareas." : "Todavía no hay tareas asignadas."}
@@ -171,7 +206,7 @@ export default async function TareasPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           {tareasList.map((tarea) => {
             const materia = materiaById.get(tarea.materia_id);
-            const fecha = formatFecha(tarea.fecha_entrega);
+            const fecha = formatFecha(tarea.fecha_entrega, tarea.hora_limite);
             const calificacionPropia = calificacionPropiaPorTarea.get(tarea.id);
             const numCalificados = calificadosPorTarea.get(tarea.id)?.size ?? 0;
             const tareaArchivos = archivosPorTarea.get(tarea.id) ?? [];
@@ -286,6 +321,8 @@ export default async function TareasPage() {
                   <EntregaTareaSection
                     tareaId={tarea.id}
                     alumnoId={profile.id}
+                    fechaEntrega={tarea.fecha_entrega}
+                    horaLimite={tarea.hora_limite}
                     archivosIniciales={
                       entregaPorTarea.has(tarea.id)
                         ? (archivosEntregaPorEntrega.get(entregaPorTarea.get(tarea.id)!.id) ?? [])

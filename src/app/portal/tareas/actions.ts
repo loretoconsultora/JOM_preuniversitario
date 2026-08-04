@@ -86,6 +86,7 @@ export async function crearTarea(formData: FormData) {
   const titulo = String(formData.get("titulo") || "").trim();
   const descripcion = sanitizeRichText(String(formData.get("descripcion") || ""));
   const fecha_entrega = String(formData.get("fecha_entrega") || "");
+  const hora_limite = String(formData.get("hora_limite") || "");
   const pide_respuesta_texto = formData.get("pide_respuesta_texto") === "on";
   const archivos = formData.getAll("archivos").filter((f): f is File => f instanceof File && f.size > 0);
   const preguntas = parsearPreguntas(formData);
@@ -103,6 +104,7 @@ export async function crearTarea(formData: FormData) {
       titulo,
       descripcion: descripcion || null,
       fecha_entrega: fecha_entrega || null,
+      hora_limite: fecha_entrega && hora_limite ? hora_limite : null,
       pide_respuesta_texto,
       creado_por: profile.id,
     })
@@ -126,6 +128,7 @@ export async function actualizarTarea(id: string, formData: FormData) {
   const titulo = String(formData.get("titulo") || "").trim();
   const descripcion = sanitizeRichText(String(formData.get("descripcion") || ""));
   const fecha_entrega = String(formData.get("fecha_entrega") || "");
+  const hora_limite = String(formData.get("hora_limite") || "");
   const pide_respuesta_texto = formData.get("pide_respuesta_texto") === "on";
   const archivos = formData.getAll("archivos").filter((f): f is File => f instanceof File && f.size > 0);
   const preguntas = parsearPreguntas(formData);
@@ -143,6 +146,7 @@ export async function actualizarTarea(id: string, formData: FormData) {
       titulo,
       descripcion: descripcion || null,
       fecha_entrega: fecha_entrega || null,
+      hora_limite: fecha_entrega && hora_limite ? hora_limite : null,
       pide_respuesta_texto,
     })
     .eq("id", id);

@@ -5,10 +5,16 @@ import { createClient } from "@/lib/supabase/server";
 import { materiasGestionables } from "@/lib/materias-gestionables";
 import { materiasInscritas } from "@/lib/materias-inscritas";
 import type { Examen, ExamenAlumno, ExamenIntento, Materia } from "@/types/database";
+import { MateriaSelector } from "@/components/materia-selector";
 import { eliminarExamen } from "./actions";
 
-export default async function ExamenesPage() {
+export default async function ExamenesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ materia?: string }>;
+}) {
   const profile = await requireProfile();
+  const { materia: materiaParam } = await searchParams;
   const supabase = await createClient();
   const isDocente = profile.role === "docente";
   const isStaff = profile.role === "docente" || profile.role === "directora";
@@ -32,7 +38,20 @@ export default async function ExamenesPage() {
       ? await materiasInscritas(supabase, profile.id)
       : ((materias ?? []) as Materia[]);
   const materiaIds = new Set(materiasList.map((m) => m.id));
-  const examenesList = ((examenes ?? []) as Examen[]).filter((e) => materiaIds.has(e.materia_id));
+
+  // Para docente/directora, el historial se organiza por materia (menú
+  // desplegable, igual que Asistencia/Tareas): muestra los exámenes de esa
+  // materia dejados por cualquier docente, no solo los propios.
+  const materiaSeleccionada =
+    isStaff && materiasList.length > 0
+      ? materiaParam && materiaIds.has(materiaParam)
+        ? materiaParam
+        : materiasList[0].id
+      : null;
+
+  const examenesList = ((examenes ?? []) as Examen[]).filter((e) =>
+    materiaSeleccionada ? e.materia_id === materiaSeleccionada : materiaIds.has(e.materia_id)
+  );
   const intentosList = (intentos ?? []) as ExamenIntento[];
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));
   const totalAlumnos = alumnosCountResult.count ?? 0;
@@ -68,6 +87,14 @@ export default async function ExamenesPage() {
           </Link>
         )}
       </div>
+
+      {isStaff && materiasList.length > 1 && materiaSeleccionada && (
+        <MateriaSelector
+          materias={materiasList.map((m) => ({ id: m.id, nombre: m.nombre }))}
+          seleccionada={materiaSeleccionada}
+          basePath="/portal/examenes"
+        />
+      )}
 
       {examenesList.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center text-sm text-muted">

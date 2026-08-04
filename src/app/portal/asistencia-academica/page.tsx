@@ -7,7 +7,7 @@ import { alumnosInscritos } from "@/lib/materias-inscritas";
 import type { ClaseAsistencia, ClaseSesion, Profile, Tema } from "@/types/database";
 import { TomarAsistenciaForm } from "@/components/tomar-asistencia-form";
 import { InscribirAlumnosSection } from "@/components/inscribir-alumnos-section";
-import { AsistenciaMateriaSelector } from "@/components/asistencia-materia-selector";
+import { MateriaSelector } from "@/components/materia-selector";
 import { eliminarSesionAsistencia } from "./actions";
 
 function formatFecha(fecha: string) {
@@ -93,9 +93,10 @@ export default async function AsistenciaAcademicaPage({
         </div>
 
         {materiasList.length > 1 && materiaSeleccionada && (
-          <AsistenciaMateriaSelector
+          <MateriaSelector
             materias={materiasList.map((m) => ({ id: m.id, nombre: m.nombre }))}
             seleccionada={materiaSeleccionada}
+            basePath="/portal/asistencia-academica"
           />
         )}
 

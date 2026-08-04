@@ -2,15 +2,17 @@
 
 import { useRouter } from "next/navigation";
 
-// Menú desplegable para elegir de qué materia es la clase, en vez de
-// pestañas — igual de funcional (navega a la misma página con ?materia=),
-// pero como select explícito.
-export function AsistenciaMateriaSelector({
+// Menú desplegable genérico para filtrar una página por materia (navega a
+// la misma ruta con ?materia=). Se usa en Asistencia, Tareas y Exámenes
+// para que el docente/directora vean el historial organizado por materia.
+export function MateriaSelector({
   materias,
   seleccionada,
+  basePath,
 }: {
   materias: { id: string; nombre: string }[];
   seleccionada: string;
+  basePath: string;
 }) {
   const router = useRouter();
 
@@ -19,7 +21,7 @@ export function AsistenciaMateriaSelector({
       Materia
       <select
         value={seleccionada}
-        onChange={(e) => router.push(`/portal/asistencia-academica?materia=${e.target.value}`)}
+        onChange={(e) => router.push(`${basePath}?materia=${e.target.value}`)}
         className="glass rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jom-pink"
       >
         {materias.map((m) => (

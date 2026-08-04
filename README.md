@@ -88,6 +88,16 @@ La cuarta variable, `ANTHROPIC_API_KEY`, es tu API key de
 generar preguntas de examen con IA; si la dejas vacía, el resto del portal
 funciona igual (solo no podrás usar "Generar con IA" al crear un examen).
 
+`RESEND_API_KEY` es tu API key de [resend.com](https://resend.com/) — se usa
+para avisarle por correo a los docentes de una materia cuando un alumno
+entrega una tarea o presenta un examen. Sin esta variable, la plataforma
+funciona igual, solo que no se mandan esos correos. Mientras no verifiques un
+dominio propio en Resend, `RESEND_FROM_EMAIL` debe quedarse con el remitente
+de pruebas (`onboarding@resend.dev`), que solo entrega a la cuenta con la que
+te registraste ahí; para que le llegue a todos los docentes hay que verificar
+un dominio propio en Resend. `NEXT_PUBLIC_SITE_URL` es la URL pública del
+portal desplegado, para el link que llevan esos correos.
+
 En Vercel (el proyecto ya está conectado a este repo): **Project → Settings →
 Environment Variables**, agrega las mismas variables para Production y
 Preview, y vuelve a desplegar.

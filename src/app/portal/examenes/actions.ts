@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAnthropicClient } from "@/lib/anthropic";
 import { parseCSV } from "@/lib/csv";
+import { notificarDocentesEntrega } from "@/lib/notificar-docentes";
 import type { ExamenPreguntaAlumno, PreguntaBorrador } from "@/types/database";
 
 function validarPreguntas(preguntas: PreguntaBorrador[]) {
@@ -278,7 +279,32 @@ export async function entregarExamen(examenId: string, respuestas: Record<string
     throw new Error(insertError.message);
   }
 
+  const { data: examen } = await admin.from("examenes").select("materia_id, titulo").eq("id", examenId).single();
+  if (examen) {
+    // El examen se autocalifica: si tiene preguntas de opción múltiple, la
+    // calificación queda también en Calificaciones sin captura manual.
+    if (calificacion !== null) {
+      await admin.from("calificaciones").insert({
+        alumno_id: profile.id,
+        materia_id: examen.materia_id,
+        titulo: examen.titulo,
+        calificacion,
+        comentario: "Autocalificado (examen)",
+        fecha: new Date().toISOString().slice(0, 10),
+        examen_id: examenId,
+        creado_por: profile.id,
+      });
+    }
+    await notificarDocentesEntrega({
+      materiaId: examen.materia_id,
+      alumnoNombre: profile.nombre_completo,
+      tipo: "examen",
+      titulo: examen.titulo,
+    });
+  }
+
   revalidatePath("/portal/examenes");
   revalidatePath(`/portal/examenes/${examenId}`);
+  revalidatePath("/portal/calificaciones");
   return { aciertos, total, calificacion };
 }

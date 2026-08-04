@@ -10,6 +10,7 @@ export async function crearCalificacion(formData: FormData) {
 
   const alumno_id = String(formData.get("alumno_id") || "");
   const tarea_id = String(formData.get("tarea_id") || "");
+  const examen_id = String(formData.get("examen_id") || "");
   let materia_id = String(formData.get("materia_id") || "");
   let titulo = String(formData.get("titulo") || "").trim();
   const calificacionRaw = String(formData.get("calificacion") || "").trim();
@@ -22,8 +23,8 @@ export async function crearCalificacion(formData: FormData) {
 
   const supabase = await createClient();
 
-  // Si se vincula a una tarea, la materia y el título se toman de la tarea
-  // (evita que queden desalineados con lo que ya ven los alumnos en Tareas).
+  // Si se vincula a una tarea o examen, la materia y el título se toman de
+  // ahí (evita que queden desalineados con lo que ya ven los alumnos).
   if (tarea_id) {
     const { data: tarea, error: tareaError } = await supabase
       .from("tareas")
@@ -33,10 +34,19 @@ export async function crearCalificacion(formData: FormData) {
     if (tareaError || !tarea) throw new Error("La tarea seleccionada ya no existe.");
     materia_id = tarea.materia_id;
     titulo = tarea.titulo;
+  } else if (examen_id) {
+    const { data: examen, error: examenError } = await supabase
+      .from("examenes")
+      .select("materia_id, titulo")
+      .eq("id", examen_id)
+      .single();
+    if (examenError || !examen) throw new Error("El examen seleccionado ya no existe.");
+    materia_id = examen.materia_id;
+    titulo = examen.titulo;
   }
 
   if (!materia_id || !titulo) {
-    throw new Error("Materia y título son obligatorios (o selecciona una tarea).");
+    throw new Error("Materia y título son obligatorios (o selecciona una tarea o examen).");
   }
 
   const { error } = await supabase.from("calificaciones").insert({
@@ -44,6 +54,7 @@ export async function crearCalificacion(formData: FormData) {
     materia_id,
     titulo,
     tarea_id: tarea_id || null,
+    examen_id: examen_id || null,
     calificacion: calificacionRaw ? Number(calificacionRaw) : null,
     comentario: comentario || null,
     fecha: fecha || new Date().toISOString().slice(0, 10),
