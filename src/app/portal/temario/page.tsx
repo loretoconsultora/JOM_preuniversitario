@@ -4,11 +4,13 @@ import { ArrowLeft, Plus, Sparkles, Trash2, LinkIcon, ChevronDown, ClipboardList
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { materiasGestionables } from "@/lib/materias-gestionables";
+import { materiasInscritas } from "@/lib/materias-inscritas";
 import { TEMARIO_BUCKET } from "@/lib/storage";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import type {
   Examen,
   Materia,
+  Role,
   Subtema,
   SubtemaEjercicio,
   SubtemaVideo,
@@ -63,6 +65,8 @@ export default async function TemarioPage({
   let materiasList: Materia[];
   if (isDocente) {
     materiasList = await materiasGestionables(supabase, profile.id);
+  } else if (profile.role === "alumno") {
+    materiasList = await materiasInscritas(supabase, profile.id);
   } else {
     const { data: materias, error: eMaterias } = await supabase.from("materias").select("*").order("nombre");
     if (eMaterias) throw new Error(`materias: ${eMaterias.message}`);
@@ -71,9 +75,18 @@ export default async function TemarioPage({
 
   const materiaValida = materiaSeleccionadaParam && materiasList.some((m) => m.id === materiaSeleccionadaParam);
   if (!materiaValida) {
-    return renderPortada(supabase, materiasList, isDocente);
+    return renderPortada(supabase, materiasList, isDocente, profile.role, profile.id);
   }
   const materiaSeleccionada = materiaSeleccionadaParam;
+
+  if (profile.role === "alumno") {
+    await supabase
+      .from("materia_vistas")
+      .upsert(
+        { alumno_id: profile.id, materia_id: materiaSeleccionada, last_viewed_at: new Date().toISOString() },
+        { onConflict: "alumno_id,materia_id" }
+      );
+  }
 
   const { data: temas, error: eTemas } = await supabase
     .from("temas")
@@ -382,8 +395,28 @@ export default async function TemarioPage({
 async function renderPortada(
   supabase: Awaited<ReturnType<typeof createClient>>,
   materiasList: Materia[],
-  isDocente: boolean
+  isDocente: boolean,
+  role: Role,
+  alumnoId: string
 ) {
+  // Para el alumno, "Mis materias" se ordena por la última vez que abrió
+  // cada una (más reciente primero); las nunca abiertas van al final.
+  if (role === "alumno" && materiasList.length > 0) {
+    const { data: vistas } = await supabase
+      .from("materia_vistas")
+      .select("materia_id, last_viewed_at")
+      .eq("alumno_id", alumnoId);
+    const vistaPorMateria = new Map((vistas ?? []).map((v) => [v.materia_id as string, v.last_viewed_at as string]));
+    materiasList = [...materiasList].sort((a, b) => {
+      const va = vistaPorMateria.get(a.id);
+      const vb = vistaPorMateria.get(b.id);
+      if (va && vb) return vb.localeCompare(va);
+      if (va) return -1;
+      if (vb) return 1;
+      return a.nombre.localeCompare(b.nombre);
+    });
+  }
+
   const materiaIds = materiasList.map((m) => m.id);
 
   const { data: allTemas, error: eAllTemas } =

@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { materiasGestionables } from "@/lib/materias-gestionables";
+import { materiasInscritas } from "@/lib/materias-inscritas";
 import type { Calificacion, Materia, Tarea, TareaArchivo, TareaEntrega, TareaEntregaArchivo, TareaIntento } from "@/types/database";
 import { TAREAS_BUCKET, TAREAS_ENTREGAS_BUCKET, formatBytes } from "@/lib/storage";
 import { EntregaTareaSection } from "@/components/entrega-tarea-section";
@@ -36,7 +37,9 @@ export default async function TareasPage() {
 
   const materiasList = isDocente
     ? await materiasGestionables(supabase, profile.id)
-    : ((materias ?? []) as Materia[]);
+    : profile.role === "alumno"
+      ? await materiasInscritas(supabase, profile.id)
+      : ((materias ?? []) as Materia[]);
   const materiaIds = new Set(materiasList.map((m) => m.id));
   const tareasList = ((tareas ?? []) as Tarea[]).filter((t) => materiaIds.has(t.materia_id));
   const calificacionesList = (calificaciones ?? []) as Calificacion[];

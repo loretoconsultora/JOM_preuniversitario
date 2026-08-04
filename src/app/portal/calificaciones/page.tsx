@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, ClipboardCheck, GraduationCap } from "lucide-reac
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { materiasGestionables } from "@/lib/materias-gestionables";
+import { materiasInscritas } from "@/lib/materias-inscritas";
 import type { Calificacion, Materia, Profile } from "@/types/database";
 import { eliminarCalificacion } from "./actions";
 
@@ -30,7 +31,9 @@ export default async function CalificacionesPage() {
 
   const materiasList = isDocente
     ? await materiasGestionables(supabase, profile.id)
-    : ((materias ?? []) as Materia[]);
+    : profile.role === "alumno"
+      ? await materiasInscritas(supabase, profile.id)
+      : ((materias ?? []) as Materia[]);
   const materiaIds = new Set(materiasList.map((m) => m.id));
   const calificacionesList = ((calificaciones ?? []) as Calificacion[]).filter((c) => materiaIds.has(c.materia_id));
   const materiaById = new Map(materiasList.map((m) => [m.id, m]));

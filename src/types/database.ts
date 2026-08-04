@@ -312,3 +312,19 @@ export type TareaIntento = {
   calificacion: number | null;
   created_at: string;
 };
+
+export type ClaseSesion = {
+  id: string;
+  materia_id: string;
+  fecha: string;
+  nota: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type ClaseAsistencia = {
+  id: string;
+  sesion_id: string;
+  alumno_id: string;
+  presente: boolean;
+};
