@@ -9,6 +9,8 @@ import type { Calificacion, Materia, Tarea, TareaArchivo, TareaEntrega, TareaEnt
 import { TAREAS_BUCKET, TAREAS_ENTREGAS_BUCKET, formatBytes } from "@/lib/storage";
 import { EntregaTareaSection } from "@/components/entrega-tarea-section";
 import { MateriaSelector } from "@/components/materia-selector";
+import { ExtenderFechaLimiteForm } from "@/components/extender-fecha-limite-form";
+import { tareaCerrada } from "@/lib/fecha-limite-tarea";
 import { eliminarTarea } from "./actions";
 
 function formatFecha(fecha: string | null, hora: string | null) {
@@ -251,6 +253,14 @@ export default async function TareasPage({
                   <div className="text-muted flex items-center gap-1.5 text-xs">
                     <CalendarDays size={13} /> Entrega: {fecha}
                   </div>
+                )}
+                {isDocente && (
+                  <ExtenderFechaLimiteForm
+                    tareaId={tarea.id}
+                    fechaActual={tarea.fecha_entrega}
+                    horaActual={tarea.hora_limite}
+                    cerrada={tareaCerrada(tarea)}
+                  />
                 )}
 
                 {tareaArchivos.length > 0 && (

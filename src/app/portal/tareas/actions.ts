@@ -187,6 +187,27 @@ export async function eliminarArchivoTarea(archivoId: string, tareaId: string) {
   revalidatePath(`/portal/tareas/${tareaId}/editar`);
 }
 
+// Acceso rápido para reabrir/extender la fecha límite de una tarea sin
+// pasar por el formulario completo de edición — pensado para cuando una
+// tarea ya se cerró sola y el docente quiere darle más tiempo a los
+// alumnos ahí mismo, desde la lista.
+export async function extenderFechaLimiteTarea(id: string, fechaEntrega: string, horaLimite: string) {
+  await requireDocente();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("tareas")
+    .update({
+      fecha_entrega: fechaEntrega || null,
+      hora_limite: fechaEntrega && horaLimite ? horaLimite : null,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/portal/tareas");
+  revalidatePath("/portal/temario");
+}
+
 export async function eliminarTarea(id: string) {
   await requireDocente();
   const supabase = await createClient();
