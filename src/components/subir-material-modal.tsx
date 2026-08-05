@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { subirArchivoTema } from "@/lib/subir-archivo-tema";
+import { crearTema } from "@/app/portal/temario/actions";
 import type { Materia } from "@/types/database";
 
 type TemaOption = { id: string; titulo: string };
@@ -25,18 +26,50 @@ export function SubirMaterialModal({
   const [archivos, setArchivos] = useState<FileList | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [creandoTema, setCreandoTema] = useState(false);
+  const [nuevoTemaTitulo, setNuevoTemaTitulo] = useState("");
+  const [creandoTemaLoading, setCreandoTemaLoading] = useState(false);
 
   async function cargarTemas(id: string) {
     setMateriaId(id);
     setTemaId("");
     setTemas([]);
     setError(null);
+    setCreandoTema(false);
+    setNuevoTemaTitulo("");
     if (!id) return;
     setCargandoTemas(true);
     const supabase = createClient();
     const { data } = await supabase.from("temas").select("id, titulo").eq("materia_id", id).order("orden");
     setTemas((data ?? []) as TemaOption[]);
     setCargandoTemas(false);
+  }
+
+  async function crearTemaRapido() {
+    const titulo = nuevoTemaTitulo.trim();
+    if (!titulo) {
+      setError("Escribe el título del nuevo tema.");
+      return;
+    }
+    setCreandoTemaLoading(true);
+    setError(null);
+    try {
+      const { id } = await crearTema({
+        titulo,
+        descripcion: "",
+        materia_id: materiaId,
+        orden: temas.length,
+        subtemas: [],
+      });
+      setTemas((prev) => [...prev, { id, titulo }]);
+      setTemaId(id);
+      setNuevoTemaTitulo("");
+      setCreandoTema(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo crear el tema.");
+    } finally {
+      setCreandoTemaLoading(false);
+    }
   }
 
   function abrir() {
@@ -138,6 +171,52 @@ export function SubirMaterialModal({
                   ))}
                 </select>
               </label>
+
+              {materiaId && !cargandoTemas && (
+                <>
+                  {creandoTema ? (
+                    <div className="flex flex-col gap-2 rounded-xl border border-black/10 p-3">
+                      <label className="flex flex-col gap-1.5 text-xs">
+                        Título del nuevo tema
+                        <input
+                          value={nuevoTemaTitulo}
+                          onChange={(e) => setNuevoTemaTitulo(e.target.value)}
+                          placeholder="Ej. Cinemática"
+                          className="rounded-lg border border-black/10 bg-jom-white px-3 py-2 text-sm text-jom-ink focus:outline-none focus:ring-2 focus:ring-jom-pink"
+                        />
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={crearTemaRapido}
+                          disabled={creandoTemaLoading}
+                          className="rounded-full bg-jom-ink px-3.5 py-1.5 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                        >
+                          {creandoTemaLoading ? "Creando…" : "Crear tema"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreandoTema(false);
+                            setNuevoTemaTitulo("");
+                          }}
+                          className="text-jom-gray text-xs underline underline-offset-2"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCreandoTema(true)}
+                      className="text-jom-pink w-fit text-xs font-medium underline underline-offset-2"
+                    >
+                      + Crear un tema nuevo
+                    </button>
+                  )}
+                </>
+              )}
 
               <label className="flex flex-col gap-1.5 text-sm">
                 Archivo(s)
