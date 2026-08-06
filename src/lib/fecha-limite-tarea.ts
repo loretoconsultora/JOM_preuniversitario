@@ -5,10 +5,18 @@ type TareaFecha = Pick<Tarea, "fecha_entrega" | "hora_limite">;
 // Combina fecha_entrega + hora_limite (o 23:59 si el docente no especificó
 // hora) en un solo instante. null si la tarea no tiene fecha de entrega
 // (sin fecha, nunca se cierra).
+//
+// El offset "-06:00" (Ciudad de México, sin horario de verano desde 2022)
+// se agrega a propósito: sin él, un string tipo "2026-08-04T23:59:00" se
+// interpreta en la zona horaria LOCAL del entorno que lo procesa. Eso es
+// distinto en el navegador del alumno (hora de México) que en el servidor
+// de Vercel (UTC) — el servidor cerraría la tarea hasta 6 horas ANTES de
+// lo que el docente configuró y de lo que el alumno ve en pantalla. Fijar
+// el offset hace que ambos calculen exactamente el mismo instante.
 export function fechaLimiteTarea(tarea: TareaFecha): Date | null {
   if (!tarea.fecha_entrega) return null;
   const hora = (tarea.hora_limite ?? "23:59").slice(0, 5);
-  return new Date(`${tarea.fecha_entrega}T${hora}:00`);
+  return new Date(`${tarea.fecha_entrega}T${hora}:00-06:00`);
 }
 
 export function tareaCerrada(tarea: TareaFecha, ahora: Date = new Date()): boolean {
