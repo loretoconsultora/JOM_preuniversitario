@@ -15,6 +15,7 @@ import {
   ClipboardCheck,
   Presentation,
   UserCheck,
+  MessagesSquare,
 } from "lucide-react";
 import type { Role } from "@/types/database";
 
@@ -24,6 +25,7 @@ const ALL_ITEMS = [
   { href: "/portal/examenes", label: "Exámenes", icon: FileQuestion, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/calificaciones", label: "Calificaciones", icon: GraduationCap, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/recursos", label: "Recursos", icon: FolderOpen, roles: ["alumno", "docente", "directora"] },
+  { href: "/portal/foro", label: "Foro", icon: MessagesSquare, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/asistencia-academica", label: "Asistencia", icon: UserCheck, roles: ["docente", "directora"] },
   {
     href: "/portal/alumnos",

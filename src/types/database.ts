@@ -108,6 +108,27 @@ export type PreguntaBorrador = {
   respuesta_correcta: number;
 };
 
+export type ForoPublicacion = {
+  id: string;
+  materia_id: string;
+  autor_id: string;
+  texto: string | null;
+  link: string | null;
+  storage_path: string | null;
+  nombre_archivo: string | null;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  created_at: string;
+};
+
+export type ForoComentario = {
+  id: string;
+  publicacion_id: string;
+  autor_id: string;
+  texto: string;
+  created_at: string;
+};
+
 export type Recurso = {
   id: string;
   titulo: string;

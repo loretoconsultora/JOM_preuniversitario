@@ -41,6 +41,7 @@ import type {
 import { TemaEditLink } from "@/components/tema-edit-link";
 import { MateriaBannerUpload } from "@/components/materia-banner-upload";
 import { ArchivoPreview } from "@/components/archivo-preview";
+import { TextoConLinks } from "@/components/texto-con-links";
 import { SubirMaterialModal } from "@/components/subir-material-modal";
 import { eliminarTema } from "./actions";
 
@@ -489,7 +490,9 @@ export default async function TemarioPage({
                                 </a>
                               ))}
                               {entrega.respuestaTexto && (
-                                <p className="mt-1 whitespace-pre-line text-muted">&ldquo;{entrega.respuestaTexto}&rdquo;</p>
+                                <p className="mt-1 whitespace-pre-line text-muted">
+                                  &ldquo;<TextoConLinks texto={entrega.respuestaTexto} />&rdquo;
+                                </p>
                               )}
                               {entrega.intento && (
                                 <p className="mt-1 text-muted">

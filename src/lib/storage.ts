@@ -5,6 +5,7 @@ export const TEMARIO_BUCKET = "temario-adjuntos";
 export const AVATARES_BUCKET = "avatares";
 export const MATERIA_BANNERS_BUCKET = "materia-banners";
 export const PACIENTE_DOCUMENTOS_BUCKET = "paciente-documentos";
+export const FORO_BUCKET = "foro-adjuntos";
 
 export function formatBytes(bytes: number | null) {
   if (!bytes) return "";

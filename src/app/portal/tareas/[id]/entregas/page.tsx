@@ -4,6 +4,7 @@ import { ArrowLeft, Paperclip } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TAREAS_ENTREGAS_BUCKET, formatBytes } from "@/lib/storage";
+import { TextoConLinks } from "@/components/texto-con-links";
 import type {
   Materia,
   Profile,
@@ -105,7 +106,9 @@ export default async function EntregasTareaPage({ params }: { params: Promise<{ 
                 {entrega?.respuesta_texto && (
                   <div className="rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
                     <p className="text-muted text-xs font-medium">Respuesta de texto</p>
-                    <p className="whitespace-pre-line">{entrega.respuesta_texto}</p>
+                    <p className="whitespace-pre-line">
+                      <TextoConLinks texto={entrega.respuesta_texto} />
+                    </p>
                   </div>
                 )}
 
