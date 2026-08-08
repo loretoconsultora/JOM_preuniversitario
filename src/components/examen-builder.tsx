@@ -29,6 +29,10 @@ export function ExamenBuilder({
   const [titulo, setTitulo] = useState("");
   const [materiaId, setMateriaId] = useState("");
   const [temaId, setTemaId] = useState("");
+  const [fechaApertura, setFechaApertura] = useState("");
+  const [horaApertura, setHoraApertura] = useState("");
+  const [fechaCierre, setFechaCierre] = useState("");
+  const [horaCierre, setHoraCierre] = useState("");
   const [preguntas, setPreguntas] = useState<PreguntaBorrador[]>([]);
   const [origen, setOrigen] = useState<"manual" | "ia" | "plantilla">("manual");
   const [destinatarios, setDestinatarios] = useState<"todos" | "seleccionados">("todos");
@@ -171,6 +175,10 @@ export function ExamenBuilder({
       setError("Selecciona al menos un alumno, o cambia a \"Todos los alumnos\".");
       return;
     }
+    if (fechaApertura && fechaCierre && fechaCierre < fechaApertura) {
+      setError("La fecha de cierre no puede ser anterior a la de apertura.");
+      return;
+    }
     setGuardando(true);
     try {
       await crearExamen({
@@ -180,6 +188,10 @@ export function ExamenBuilder({
         origen,
         preguntas,
         alumnoIds: destinatarios === "seleccionados" ? alumnoIdsSeleccionados : undefined,
+        fecha_apertura: fechaApertura || null,
+        hora_apertura: horaApertura || null,
+        fecha_cierre: fechaCierre || null,
+        hora_cierre: horaCierre || null,
       });
       router.push("/portal/examenes");
       router.refresh();
@@ -232,6 +244,57 @@ export function ExamenBuilder({
           ))}
         </select>
       </label>
+
+      <div className="glass flex flex-col gap-3 rounded-2xl p-4">
+        <p className="text-sm font-medium">Ventana de disponibilidad (opcional)</p>
+        <p className="text-muted text-xs">
+          Deja los campos vacíos para que el examen esté disponible desde ahora y no cierre nunca.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-xs">
+              Abre el
+              <input
+                type="date"
+                value={fechaApertura}
+                onChange={(e) => setFechaApertura(e.target.value)}
+                className={`${inputClass} py-2`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              Hora
+              <input
+                type="time"
+                value={horaApertura}
+                onChange={(e) => setHoraApertura(e.target.value)}
+                disabled={!fechaApertura}
+                className={`${inputClass} py-2 disabled:opacity-50`}
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-xs">
+              Cierra el
+              <input
+                type="date"
+                value={fechaCierre}
+                onChange={(e) => setFechaCierre(e.target.value)}
+                className={`${inputClass} py-2`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              Hora
+              <input
+                type="time"
+                value={horaCierre}
+                onChange={(e) => setHoraCierre(e.target.value)}
+                disabled={!fechaCierre}
+                className={`${inputClass} py-2 disabled:opacity-50`}
+              />
+            </label>
+          </div>
+        </div>
+      </div>
 
       <div className="glass flex flex-col gap-3 rounded-2xl p-4">
         <p className="text-sm font-medium">Destinatarios</p>

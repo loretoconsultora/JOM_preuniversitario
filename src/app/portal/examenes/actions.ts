@@ -7,7 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createAnthropicClient } from "@/lib/anthropic";
 import { parseCSV } from "@/lib/csv";
 import { notificarDocentesEntrega } from "@/lib/notificar-docentes";
-import type { ExamenPreguntaAlumno, PreguntaBorrador } from "@/types/database";
+import { examenAunNoAbre, examenCerrado, leyendaVentanaExamen } from "@/lib/fecha-examen";
+import type { Examen, ExamenPreguntaAlumno, PreguntaBorrador } from "@/types/database";
 
 function validarPreguntas(preguntas: PreguntaBorrador[]) {
   if (preguntas.length === 0) {
@@ -31,12 +32,19 @@ export async function crearExamen(input: {
   origen: "manual" | "ia" | "plantilla";
   preguntas: PreguntaBorrador[];
   alumnoIds?: string[];
+  fecha_apertura?: string | null;
+  hora_apertura?: string | null;
+  fecha_cierre?: string | null;
+  hora_cierre?: string | null;
 }) {
   const profile = await requireDocente();
 
   const titulo = input.titulo.trim();
   if (!titulo) throw new Error("El título es obligatorio.");
   if (!input.materia_id) throw new Error("Selecciona una materia.");
+  if (input.fecha_apertura && input.fecha_cierre && input.fecha_cierre < input.fecha_apertura) {
+    throw new Error("La fecha de cierre no puede ser anterior a la de apertura.");
+  }
   validarPreguntas(input.preguntas);
 
   const supabase = await createClient();
@@ -48,6 +56,10 @@ export async function crearExamen(input: {
       tema_id: input.tema_id || null,
       origen: input.origen,
       creado_por: profile.id,
+      fecha_apertura: input.fecha_apertura || null,
+      hora_apertura: input.fecha_apertura ? input.hora_apertura || null : null,
+      fecha_cierre: input.fecha_cierre || null,
+      hora_cierre: input.fecha_cierre ? input.hora_cierre || null : null,
     })
     .select("id")
     .single();
@@ -82,6 +94,28 @@ export async function eliminarExamen(id: string) {
   await requireDocente();
   const supabase = await createClient();
   const { error } = await supabase.from("examenes").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/portal/examenes");
+}
+
+export async function actualizarFechasExamen(
+  id: string,
+  fechas: { fecha_apertura: string; hora_apertura: string; fecha_cierre: string; hora_cierre: string }
+) {
+  await requireDocente();
+  if (fechas.fecha_apertura && fechas.fecha_cierre && fechas.fecha_cierre < fechas.fecha_apertura) {
+    throw new Error("La fecha de cierre no puede ser anterior a la de apertura.");
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("examenes")
+    .update({
+      fecha_apertura: fechas.fecha_apertura || null,
+      hora_apertura: fechas.fecha_apertura ? fechas.hora_apertura || null : null,
+      fecha_cierre: fechas.fecha_cierre || null,
+      hora_cierre: fechas.fecha_cierre ? fechas.hora_cierre || null : null,
+    })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/portal/examenes");
 }
@@ -220,7 +254,32 @@ export async function obtenerPreguntasParaTomar(examenId: string) {
     .maybeSingle();
 
   if (intentoExistente) {
-    return { yaPresentado: true as const, intento: intentoExistente };
+    return { yaPresentado: true as const, disponible: true as const, intento: intentoExistente };
+  }
+
+  const { data: examen } = await admin
+    .from("examenes")
+    .select("fecha_apertura, hora_apertura, fecha_cierre, hora_cierre")
+    .eq("id", examenId)
+    .single();
+
+  if (examen) {
+    if (examenAunNoAbre(examen as Examen)) {
+      return {
+        yaPresentado: false as const,
+        disponible: false as const,
+        motivo: "aun_no_abre" as const,
+        leyenda: leyendaVentanaExamen(examen as Examen),
+      };
+    }
+    if (examenCerrado(examen as Examen)) {
+      return {
+        yaPresentado: false as const,
+        disponible: false as const,
+        motivo: "cerrado" as const,
+        leyenda: null,
+      };
+    }
   }
 
   const { data: preguntas, error } = await admin
@@ -233,6 +292,7 @@ export async function obtenerPreguntasParaTomar(examenId: string) {
 
   return {
     yaPresentado: false as const,
+    disponible: true as const,
     preguntas: (preguntas ?? []) as ExamenPreguntaAlumno[],
   };
 }
@@ -245,6 +305,20 @@ export async function entregarExamen(examenId: string, respuestas: Record<string
   await assertExamenAccesible(examenId, profile.id);
 
   const admin = createAdminClient();
+  const { data: examenFechas } = await admin
+    .from("examenes")
+    .select("fecha_apertura, hora_apertura, fecha_cierre, hora_cierre")
+    .eq("id", examenId)
+    .single();
+  if (examenFechas) {
+    if (examenAunNoAbre(examenFechas as Examen)) {
+      throw new Error("Este examen todavía no está disponible.");
+    }
+    if (examenCerrado(examenFechas as Examen)) {
+      throw new Error("Este examen ya cerró y ya no admite entregas.");
+    }
+  }
+
   const { data: preguntas, error } = await admin
     .from("examen_preguntas")
     .select("id, tipo, respuesta_correcta")

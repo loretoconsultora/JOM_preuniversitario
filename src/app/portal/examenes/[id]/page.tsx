@@ -170,6 +170,29 @@ export default async function ExamenDetallePage({
   // Alumno
   const resultado = await obtenerPreguntasParaTomar(id);
 
+  if (!resultado.disponible) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        <Link href="/portal/examenes" className="text-muted inline-flex items-center gap-1.5 text-sm hover:text-fg">
+          <ArrowLeft size={14} /> Volver a exámenes
+        </Link>
+
+        <div>
+          <span className="inline-block rounded-full bg-jom-yellow/40 px-2.5 py-0.5 text-xs font-medium text-jom-ink">
+            {(materia as Materia | null)?.nombre ?? "Materia"}
+          </span>
+          <h1 className="mt-2 text-2xl font-semibold">{examenData.titulo}</h1>
+        </div>
+
+        <div className="glass rounded-2xl p-6 text-center text-sm text-muted">
+          {resultado.motivo === "aun_no_abre"
+            ? (resultado.leyenda ?? "Este examen todavía no está disponible.")
+            : "Este examen ya cerró y no lo presentaste a tiempo."}
+        </div>
+      </div>
+    );
+  }
+
   if (resultado.yaPresentado) {
     const intento = resultado.intento as ExamenIntento;
     const admin = createAdminClient();

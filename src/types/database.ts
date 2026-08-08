@@ -59,6 +59,10 @@ export type Examen = {
   tema_id: string | null;
   titulo: string;
   origen: "manual" | "ia" | "plantilla";
+  fecha_apertura: string | null;
+  hora_apertura: string | null;
+  fecha_cierre: string | null;
+  hora_cierre: string | null;
   creado_por: string;
   created_at: string;
 };
