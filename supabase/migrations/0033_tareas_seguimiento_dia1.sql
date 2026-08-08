@@ -1,10 +1,11 @@
 -- Tareas de seguimiento al Día 1 de Productividad con IA: checklist de
 -- acceso técnico (Claude web + app de escritorio), listar actividades
--- repetitivas, manifiesto personal, priorizar proyecto, y modelado de
--- personalidad. "Abrir correctamente Claude" y "Instalar la app de
--- escritorio" sí llevan fecha límite (sábado 8 y domingo 9 de agosto
--- 2026, respectivamente); el resto queda abierto, igual que las tareas
--- anteriores.
+-- repetitivas, priorizar proyecto personal, manifiesto de 12 puntos, y
+-- conversar con la IA usando el prompt maestro. "Abrir correctamente
+-- Claude" y "Instalar la app de escritorio" sí llevan fecha límite
+-- (sábado 8 y domingo 9 de agosto 2026, respectivamente); el resto
+-- queda abierto, igual que las tareas anteriores. Orden de inserción
+-- calcado del orden exacto en que la docente lo tenía escrito.
 
 do $$
 declare
@@ -86,25 +87,7 @@ begin
     v_docente_id
   );
 
-  -- ================= D. MANIFIESTO PERSONAL (12 PUNTOS) =================
-  insert into public.tareas (materia_id, tema_id, titulo, descripcion, pide_respuesta_texto, creado_por)
-  values (
-    v_materia_id,
-    v_tema6_id,
-    'Manifiesto personal (12 puntos)',
-    '<p>Como platicamos en la sesión, vas a escribir tu manifiesto personal: un documento tuyo, de <strong>al menos 12 puntos</strong>, sobre cómo y bajo qué condiciones vas a usar la inteligencia artificial.</p>' ||
-    '<p>Reglas importantes:</p>' ||
-    '<ul>' ||
-    '<li>Debe ser escrito <strong>a mano, en papel</strong>.</li>' ||
-    '<li><strong>No uses la IA</strong> para ayudarte a redactarlo — la idea es que sea completamente tuyo, para que realmente pienses cada punto (es un ejercicio de &quot;estiramiento cognitivo&quot;, como se explicó en clase).</li>' ||
-    '</ul>' ||
-    '<p>Algunos temas que puedes considerar (no son obligatorios, son solo para inspirarte): cuándo sí y cuándo no vas a usar IA, cómo vas a proteger tu privacidad y la de otros, cómo vas a evitar el plagio, qué tanto vas a confiar en sus respuestas, y cómo quieres que la IA te ayude sin reemplazar tu propio criterio.</p>' ||
-    '<p>Sube una foto legible de tu manifiesto ya escrito.</p>',
-    false,
-    v_docente_id
-  );
-
-  -- ================= E. DEFINIR Y PRIORIZAR TU PROYECTO PERSONAL =================
+  -- ================= D. DEFINIR Y PRIORIZAR TU PROYECTO PERSONAL =================
   insert into public.tareas (materia_id, titulo, descripcion, pide_respuesta_texto, creado_por)
   values (
     v_materia_id,
@@ -120,13 +103,32 @@ begin
     v_docente_id
   );
 
-  -- ================= F. MODELADO DE PERSONALIDAD EN CLAUDE =================
+  -- ================= E. MANIFIESTO PERSONAL DE USO DE IA (12 PUNTOS) =================
+  insert into public.tareas (materia_id, tema_id, titulo, descripcion, pide_respuesta_texto, creado_por)
+  values (
+    v_materia_id,
+    v_tema6_id,
+    'Manifiesto personal de uso de IA (12 puntos)',
+    '<p>Como platicamos en la sesión, vas a escribir tu manifiesto personal: un documento tuyo, de <strong>al menos 12 puntos</strong> (oraciones), sobre cómo y bajo qué condiciones vas a usar la inteligencia artificial.</p>' ||
+    '<p>Reglas importantes:</p>' ||
+    '<ul>' ||
+    '<li>Debe ser escrito <strong>a mano, en papel</strong>.</li>' ||
+    '<li><strong>No uses la IA</strong> para ayudarte a redactarlo — la idea es que sea completamente tuyo, para que realmente pienses cada punto (es un ejercicio de &quot;estiramiento cognitivo&quot;, como se explicó en clase).</li>' ||
+    '<li>Cada punto puede comenzar con un verbo de compromiso, por ejemplo: <em>&quot;Yo usaré...&quot;</em> o <em>&quot;Yo trabajaré...&quot;</em>.</li>' ||
+    '</ul>' ||
+    '<p>Algunos temas que puedes considerar (no son obligatorios, son solo para inspirarte): cuándo sí y cuándo no vas a usar IA, cómo vas a proteger tu privacidad y la de otros, cómo vas a evitar el plagio, qué tanto vas a confiar en sus respuestas, y cómo quieres que la IA te ayude sin reemplazar tu propio criterio.</p>' ||
+    '<p>Sube una foto legible de tu manifiesto ya escrito.</p>',
+    false,
+    v_docente_id
+  );
+
+  -- ================= F. CONVERSAR CON LA IA USANDO EL PROMPT MAESTRO =================
   insert into public.tareas (materia_id, tema_id, titulo, descripcion, pide_respuesta_texto, creado_por)
   values (
     v_materia_id,
     v_tema5_id,
-    'Modelado de personalidad en Claude',
-    '<p>Es momento de hacer el ejercicio de &quot;modelar tu versión digital&quot; que vimos en clase.</p>' ||
+    'Conversar con la IA usando el prompt maestro',
+    '<p>Es momento de hacer el ejercicio de &quot;modelar tu versión digital&quot; que vimos en clase, usando el prompt maestro.</p>' ||
     '<p>Pasos:</p>' ||
     '<ol>' ||
     '<li>Abre un <strong>proyecto dedicado</strong> dentro de Claude (no uses el chat general, para que no se mezcle con la información de tus compañeros de equipo).</li>' ||
