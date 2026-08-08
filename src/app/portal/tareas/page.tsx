@@ -173,6 +173,156 @@ export default async function TareasPage({
     }
   }
 
+  // tareasList ya viene ordenada por fecha_entrega ascendente (sin fecha al
+  // final). Se separa en dos secciones para no revolver lo que sigue vigente
+  // con lo que ya cerró: activas conserva ese orden (de la próxima a la
+  // última), vencidas se invierte para mostrar primero lo que cerró más
+  // recientemente.
+  const activas = tareasList.filter((t) => !tareaCerrada(t));
+  const vencidas = tareasList.filter((t) => tareaCerrada(t)).reverse();
+
+  function renderTareaCard(tarea: Tarea) {
+    const materia = materiaById.get(tarea.materia_id);
+    const fecha = formatFecha(tarea.fecha_entrega, tarea.hora_limite);
+    const calificacionPropia = calificacionPropiaPorTarea.get(tarea.id);
+    const numCalificados = calificadosPorTarea.get(tarea.id)?.size ?? 0;
+    const tareaArchivos = archivosPorTarea.get(tarea.id) ?? [];
+
+    return (
+      <div key={tarea.id} id={`tarea-${tarea.id}`} className="glass flex flex-col gap-3 rounded-2xl p-5 scroll-mt-24">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <span className="inline-block rounded-full bg-jom-yellow/40 px-2.5 py-0.5 text-xs font-medium text-jom-ink">
+              {materia?.nombre ?? "Materia"}
+            </span>
+            <h2 className="mt-2 font-semibold">{tarea.titulo}</h2>
+          </div>
+          {isDocente && (
+            <div className="flex items-center gap-1 shrink-0">
+              <Link
+                href={`/portal/tareas/${tarea.id}/editar`}
+                aria-label="Editar tarea"
+                className="text-muted rounded-full p-1.5 transition-colors hover:bg-black/5 hover:text-fg dark:hover:bg-white/10"
+              >
+                <Pencil size={15} />
+              </Link>
+              <form action={eliminarTarea.bind(null, tarea.id)}>
+                <button
+                  type="submit"
+                  aria-label="Eliminar tarea"
+                  className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+        {tarea.descripcion && (
+          <div
+            className="rich-content whitespace-pre-line text-sm text-fg/80"
+            dangerouslySetInnerHTML={{ __html: tarea.descripcion }}
+          />
+        )}
+        {fecha && (
+          <div className="text-muted flex items-center gap-1.5 text-xs">
+            <CalendarDays size={13} /> Entrega: {fecha}
+          </div>
+        )}
+        {isDocente && (
+          <ExtenderFechaLimiteForm
+            tareaId={tarea.id}
+            fechaActual={tarea.fecha_entrega}
+            horaActual={tarea.hora_limite}
+            cerrada={tareaCerrada(tarea)}
+          />
+        )}
+
+        {tareaArchivos.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            {tareaArchivos.map((archivo) => {
+              const url = signedUrlByPath.get(archivo.storage_path);
+              return (
+                <a
+                  key={archivo.id}
+                  href={url ?? "#"}
+                  download={archivo.nombre_archivo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-opacity hover:opacity-80"
+                >
+                  <Paperclip size={13} className="text-muted shrink-0" />
+                  <span className="flex-1 truncate">{archivo.nombre_archivo}</span>
+                  {archivo.tamano_bytes && (
+                    <span className="text-muted shrink-0">{formatBytes(archivo.tamano_bytes)}</span>
+                  )}
+                  <Download size={13} className="text-muted shrink-0" />
+                </a>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-1 flex items-center justify-between">
+          {!isStaff && (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                calificacionPropia
+                  ? "bg-jom-pink/30 text-jom-ink dark:text-jom-white"
+                  : "bg-black/5 text-muted dark:bg-white/10"
+              }`}
+            >
+              <GraduationCap size={13} />
+              {calificacionPropia
+                ? `Calificación: ${calificacionPropia.calificacion ?? "—"}`
+                : "Sin calificar"}
+            </span>
+          )}
+          {isStaff && (
+            <span className="text-muted text-xs">
+              {numCalificados}/{totalAlumnos} alumnos calificados
+            </span>
+          )}
+          {isDocente && (
+            <Link
+              href={`/portal/calificaciones/nueva?tarea_id=${tarea.id}`}
+              className="text-xs font-medium underline underline-offset-2 hover:text-jom-pink"
+            >
+              Calificar
+            </Link>
+          )}
+        </div>
+
+        {isStaff && (
+          <Link
+            href={`/portal/tareas/${tarea.id}/entregas`}
+            className="text-muted inline-flex w-fit items-center gap-1.5 text-xs hover:text-fg"
+          >
+            <FileCheck2 size={13} /> Ver entregas ({entregasPorTarea.get(tarea.id) ?? 0})
+          </Link>
+        )}
+
+        {!isStaff && (
+          <EntregaTareaSection
+            tareaId={tarea.id}
+            alumnoId={profile.id}
+            fechaEntrega={tarea.fecha_entrega}
+            horaLimite={tarea.hora_limite}
+            archivosIniciales={
+              entregaPorTarea.has(tarea.id)
+                ? (archivosEntregaPorEntrega.get(entregaPorTarea.get(tarea.id)!.id) ?? [])
+                : []
+            }
+            pideRespuestaTexto={tarea.pide_respuesta_texto}
+            respuestaTextoInicial={entregaPorTarea.get(tarea.id)?.respuesta_texto ?? ""}
+            tienePreguntas={tareaIdsConPreguntas.has(tarea.id)}
+            intentoInicial={intentoPorTarea.get(tarea.id) ?? null}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -205,148 +355,28 @@ export default async function TareasPage({
           {isDocente ? "Aún no has creado tareas." : "Todavía no hay tareas asignadas."}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {tareasList.map((tarea) => {
-            const materia = materiaById.get(tarea.materia_id);
-            const fecha = formatFecha(tarea.fecha_entrega, tarea.hora_limite);
-            const calificacionPropia = calificacionPropiaPorTarea.get(tarea.id);
-            const numCalificados = calificadosPorTarea.get(tarea.id)?.size ?? 0;
-            const tareaArchivos = archivosPorTarea.get(tarea.id) ?? [];
-
-            return (
-              <div key={tarea.id} id={`tarea-${tarea.id}`} className="glass flex flex-col gap-3 rounded-2xl p-5 scroll-mt-24">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="inline-block rounded-full bg-jom-yellow/40 px-2.5 py-0.5 text-xs font-medium text-jom-ink">
-                      {materia?.nombre ?? "Materia"}
-                    </span>
-                    <h2 className="mt-2 font-semibold">{tarea.titulo}</h2>
-                  </div>
-                  {isDocente && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Link
-                        href={`/portal/tareas/${tarea.id}/editar`}
-                        aria-label="Editar tarea"
-                        className="text-muted rounded-full p-1.5 transition-colors hover:bg-black/5 hover:text-fg dark:hover:bg-white/10"
-                      >
-                        <Pencil size={15} />
-                      </Link>
-                      <form action={eliminarTarea.bind(null, tarea.id)}>
-                        <button
-                          type="submit"
-                          aria-label="Eliminar tarea"
-                          className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </div>
-                {tarea.descripcion && (
-                  <div
-                    className="rich-content whitespace-pre-line text-sm text-fg/80"
-                    dangerouslySetInnerHTML={{ __html: tarea.descripcion }}
-                  />
-                )}
-                {fecha && (
-                  <div className="text-muted flex items-center gap-1.5 text-xs">
-                    <CalendarDays size={13} /> Entrega: {fecha}
-                  </div>
-                )}
-                {isDocente && (
-                  <ExtenderFechaLimiteForm
-                    tareaId={tarea.id}
-                    fechaActual={tarea.fecha_entrega}
-                    horaActual={tarea.hora_limite}
-                    cerrada={tareaCerrada(tarea)}
-                  />
-                )}
-
-                {tareaArchivos.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
-                    {tareaArchivos.map((archivo) => {
-                      const url = signedUrlByPath.get(archivo.storage_path);
-                      return (
-                        <a
-                          key={archivo.id}
-                          href={url ?? "#"}
-                          download={archivo.nombre_archivo}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-opacity hover:opacity-80"
-                        >
-                          <Paperclip size={13} className="text-muted shrink-0" />
-                          <span className="flex-1 truncate">{archivo.nombre_archivo}</span>
-                          {archivo.tamano_bytes && (
-                            <span className="text-muted shrink-0">{formatBytes(archivo.tamano_bytes)}</span>
-                          )}
-                          <Download size={13} className="text-muted shrink-0" />
-                        </a>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="mt-1 flex items-center justify-between">
-                  {!isStaff && (
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                        calificacionPropia
-                          ? "bg-jom-pink/30 text-jom-ink dark:text-jom-white"
-                          : "bg-black/5 text-muted dark:bg-white/10"
-                      }`}
-                    >
-                      <GraduationCap size={13} />
-                      {calificacionPropia
-                        ? `Calificación: ${calificacionPropia.calificacion ?? "—"}`
-                        : "Sin calificar"}
-                    </span>
-                  )}
-                  {isStaff && (
-                    <span className="text-muted text-xs">
-                      {numCalificados}/{totalAlumnos} alumnos calificados
-                    </span>
-                  )}
-                  {isDocente && (
-                    <Link
-                      href={`/portal/calificaciones/nueva?tarea_id=${tarea.id}`}
-                      className="text-xs font-medium underline underline-offset-2 hover:text-jom-pink"
-                    >
-                      Calificar
-                    </Link>
-                  )}
-                </div>
-
-                {isStaff && (
-                  <Link
-                    href={`/portal/tareas/${tarea.id}/entregas`}
-                    className="text-muted inline-flex w-fit items-center gap-1.5 text-xs hover:text-fg"
-                  >
-                    <FileCheck2 size={13} /> Ver entregas ({entregasPorTarea.get(tarea.id) ?? 0})
-                  </Link>
-                )}
-
-                {!isStaff && (
-                  <EntregaTareaSection
-                    tareaId={tarea.id}
-                    alumnoId={profile.id}
-                    fechaEntrega={tarea.fecha_entrega}
-                    horaLimite={tarea.hora_limite}
-                    archivosIniciales={
-                      entregaPorTarea.has(tarea.id)
-                        ? (archivosEntregaPorEntrega.get(entregaPorTarea.get(tarea.id)!.id) ?? [])
-                        : []
-                    }
-                    pideRespuestaTexto={tarea.pide_respuesta_texto}
-                    respuestaTextoInicial={entregaPorTarea.get(tarea.id)?.respuesta_texto ?? ""}
-                    tienePreguntas={tareaIdsConPreguntas.has(tarea.id)}
-                    intentoInicial={intentoPorTarea.get(tarea.id) ?? null}
-                  />
-                )}
+        <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-4">
+            <h2 className="text-muted text-xs font-semibold tracking-wide uppercase">
+              Activas {activas.length > 0 && `(${activas.length})`}
+            </h2>
+            {activas.length === 0 ? (
+              <div className="glass rounded-2xl p-6 text-center text-sm text-muted">
+                No hay tareas activas por ahora.
               </div>
-            );
-          })}
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">{activas.map(renderTareaCard)}</div>
+            )}
+          </div>
+
+          {vencidas.length > 0 && (
+            <div className="flex flex-col gap-4">
+              <h2 className="text-muted text-xs font-semibold tracking-wide uppercase">
+                Vencidas / cerradas ({vencidas.length})
+              </h2>
+              <div className="grid gap-4 opacity-80 sm:grid-cols-2">{vencidas.map(renderTareaCard)}</div>
+            </div>
+          )}
         </div>
       )}
     </div>
