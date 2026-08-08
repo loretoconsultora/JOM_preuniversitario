@@ -78,14 +78,24 @@ export default async function ExamenesPage({
           <h1 className="text-2xl font-semibold">Exámenes</h1>
           <p className="text-muted text-sm">Preguntas de opción múltiple con calificación automática</p>
         </div>
-        {isDocente && (
-          <Link
-            href="/portal/examenes/nuevo"
-            className="inline-flex items-center gap-1.5 rounded-full bg-jom-ink px-4 py-2.5 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
-          >
-            <Plus size={15} /> Nuevo examen
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {isStaff && (
+            <Link
+              href="/portal/examenes/comparativo"
+              className="text-muted inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium hover:bg-black/5 hover:text-fg dark:hover:bg-white/10"
+            >
+              Comparativo
+            </Link>
+          )}
+          {isDocente && (
+            <Link
+              href="/portal/examenes/nuevo"
+              className="inline-flex items-center gap-1.5 rounded-full bg-jom-ink px-4 py-2.5 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
+            >
+              <Plus size={15} /> Nuevo examen
+            </Link>
+          )}
+        </div>
       </div>
 
       {isStaff && materiasList.length > 1 && materiaSeleccionada && (
