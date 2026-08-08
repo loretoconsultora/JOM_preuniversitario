@@ -40,7 +40,11 @@ export default async function TareasPage({
 
   const [{ data: materias }, { data: tareas }, { data: calificaciones }, alumnosCountResult] = await Promise.all([
     supabase.from("materias").select("*").order("nombre"),
-    supabase.from("tareas").select("*").order("fecha_entrega", { ascending: true, nullsFirst: false }),
+    supabase
+      .from("tareas")
+      .select("*")
+      .order("fecha_entrega", { ascending: true, nullsFirst: false })
+      .order("hora_limite", { ascending: true, nullsFirst: false }),
     // RLS ya filtra: el alumno solo ve las suyas, docente/directora ven todas.
     supabase.from("calificaciones").select("*").not("tarea_id", "is", null),
     isStaff
