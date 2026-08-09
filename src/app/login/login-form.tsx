@@ -46,6 +46,7 @@ export function LoginForm() {
       <div className="glass-strong w-full max-w-md rounded-3xl p-8 sm:p-10">
         <div className="mb-8 flex flex-col items-center">
           <JomLogo className="h-16 w-auto" />
+          <p className="mt-3 text-lg font-semibold text-fg">Bienvenid@</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
