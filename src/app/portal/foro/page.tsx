@@ -18,43 +18,57 @@ export default async function ForoPage({
   const supabase = await createClient();
   const isStaff = profile.role === "docente" || profile.role === "directora";
 
-  const materiasList =
-    profile.role === "docente"
-      ? await materiasGestionables(supabase, profile.id)
-      : profile.role === "alumno"
-        ? await materiasInscritas(supabase, profile.id)
-        : (((await supabase.from("materias").select("*").order("nombre")).data ?? []) as Materia[]);
+  let materiasList: Materia[];
+  if (profile.role === "docente") {
+    materiasList = await materiasGestionables(supabase, profile.id);
+  } else if (profile.role === "alumno") {
+    materiasList = await materiasInscritas(supabase, profile.id);
+  } else {
+    const { data: materiasData, error: materiasError } = await supabase.from("materias").select("*").order("nombre");
+    if (materiasError) throw new Error(`No se pudieron cargar las materias: ${materiasError.message}`);
+    materiasList = (materiasData ?? []) as Materia[];
+  }
   const materiaIds = new Set(materiasList.map((m) => m.id));
   const materiaSel =
     materiaParam && materiaIds.has(materiaParam) ? materiaParam : (materiasList[0]?.id ?? "");
 
   let feed: PublicacionVM[] = [];
   if (materiaSel) {
-    const { data: publicacionesData } = await supabase
+    const { data: publicacionesData, error: publicacionesError } = await supabase
       .from("foro_publicaciones")
       .select("*")
       .eq("materia_id", materiaSel)
       .order("created_at", { ascending: false });
+    if (publicacionesError) {
+      throw new Error(`No se pudieron cargar las publicaciones del foro: ${publicacionesError.message}`);
+    }
     const publicaciones = (publicacionesData ?? []) as ForoPublicacion[];
 
     const publicacionIds = publicaciones.map((p) => p.id);
-    const { data: comentariosData } =
+    const { data: comentariosData, error: comentariosError } =
       publicacionIds.length > 0
         ? await supabase.from("foro_comentarios").select("*").in("publicacion_id", publicacionIds).order("created_at")
-        : { data: [] as ForoComentario[] };
+        : { data: [] as ForoComentario[], error: null };
+    if (comentariosError) throw new Error(`No se pudieron cargar los comentarios: ${comentariosError.message}`);
     const comentarios = (comentariosData ?? []) as ForoComentario[];
 
     const autorIds = new Set([...publicaciones.map((p) => p.autor_id), ...comentarios.map((c) => c.autor_id)]);
-    const { data: perfilesData } =
+    const { data: perfilesData, error: perfilesError } =
       autorIds.size > 0
         ? await supabase.from("profiles").select("id, nombre_completo, avatar_url").in("id", [...autorIds])
-        : { data: [] as Pick<Profile, "id" | "nombre_completo" | "avatar_url">[] };
+        : { data: [] as Pick<Profile, "id" | "nombre_completo" | "avatar_url">[], error: null };
+    if (perfilesError) throw new Error(`No se pudieron cargar los perfiles: ${perfilesError.message}`);
     const perfilPorId = new Map((perfilesData ?? []).map((p) => [p.id, p]));
 
     const rutasConArchivo = publicaciones.filter((p) => p.storage_path).map((p) => p.storage_path!);
     const signedUrlByPath = new Map<string, string>();
     if (rutasConArchivo.length > 0) {
-      const { data: signedUrls } = await supabase.storage.from(FORO_BUCKET).createSignedUrls(rutasConArchivo, 3600);
+      const { data: signedUrls, error: signedUrlsError } = await supabase.storage
+        .from(FORO_BUCKET)
+        .createSignedUrls(rutasConArchivo, 3600);
+      if (signedUrlsError) {
+        throw new Error(`No se pudieron generar los enlaces de los archivos adjuntos: ${signedUrlsError.message}`);
+      }
       for (const s of signedUrls ?? []) {
         if (s.signedUrl) signedUrlByPath.set(s.path ?? "", s.signedUrl);
       }
