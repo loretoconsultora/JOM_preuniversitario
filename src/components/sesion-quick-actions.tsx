@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Pencil } from "lucide-react";
-import { marcarAsistencia, guardarNotaSesion, reagendarSesion } from "@/app/portal/pacientes/actions";
+import { CalendarClock, Pencil, Trash2 } from "lucide-react";
+import { marcarAsistencia, guardarNotaSesion, reagendarSesion, eliminarSesion } from "@/app/portal/pacientes/actions";
 import type { EstadoSesion } from "@/types/database";
 import { ESTADO_LABEL, ESTADO_CLASS } from "@/lib/estado-sesion";
 import { RichTextEditor } from "@/components/rich-text-editor";
@@ -13,11 +13,13 @@ export function SesionQuickActions({
   estadoInicial,
   notaInicial,
   accionable,
+  permitirEliminar = false,
 }: {
   sesionId: string;
   estadoInicial: EstadoSesion;
   notaInicial: string | null;
   accionable: boolean;
+  permitirEliminar?: boolean;
 }) {
   const router = useRouter();
   const [estado, setEstado] = useState<EstadoSesion>(estadoInicial);
@@ -79,6 +81,19 @@ export function SesionQuickActions({
     }
   }
 
+  async function eliminar() {
+    if (!window.confirm("¿Eliminar esta sesión? Esta acción no se puede deshacer.")) return;
+    setCargando(true);
+    setError(null);
+    try {
+      await eliminarSesion(sesionId);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo eliminar la sesión.");
+      setCargando(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -125,6 +140,17 @@ export function SesionQuickActions({
             className="text-muted inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs hover:text-fg"
           >
             <Pencil size={12} /> {nota ? "Editar nota" : "Agregar nota"}
+          </button>
+        )}
+
+        {permitirEliminar && (
+          <button
+            type="button"
+            onClick={eliminar}
+            disabled={cargando}
+            className="text-jom-pink inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+          >
+            <Trash2 size={12} /> Eliminar
           </button>
         )}
       </div>

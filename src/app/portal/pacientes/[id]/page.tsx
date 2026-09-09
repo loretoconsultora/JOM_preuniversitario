@@ -5,7 +5,6 @@ import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Paciente, PacienteDocumento, PacienteNota, PacienteSalud, PacienteSesion, Profile } from "@/types/database";
 import { evaluacionDisponible } from "@/lib/evaluaciones-habilidades";
-import { pacienteDesdeLabel } from "@/lib/paciente-fecha";
 import { contarPorEstado, emojisAlerta } from "@/lib/estado-sesion";
 import { medicacionLabel, asistenciaSaludLabel } from "@/lib/paciente-salud";
 import { PACIENTE_DOCUMENTOS_BUCKET } from "@/lib/storage";
@@ -16,6 +15,7 @@ import { NotasSection } from "@/components/notas-section";
 import { PacienteSaludForm } from "@/components/paciente-salud-form";
 import { DocumentosPacienteSection } from "@/components/documentos-paciente-section";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { FechaAltaEditor } from "@/components/fecha-alta-editor";
 import { archivarPaciente, eliminarPaciente } from "../actions";
 
 function formatFecha(fecha: string) {
@@ -173,7 +173,7 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
           </div>
         )}
 
-        <p className="text-muted text-sm">{pacienteDesdeLabel(pacienteData.fecha_alta, new Date())}</p>
+        <FechaAltaEditor pacienteId={id} fechaAlta={pacienteData.fecha_alta} />
 
         <p className="text-sm">
           {proximaSesion ? (
@@ -234,6 +234,7 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
                       estadoInicial={s.estado}
                       notaInicial={s.nota}
                       accionable={s.fecha <= hoy}
+                      permitirEliminar
                     />
                   </div>
                 ))}

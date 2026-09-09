@@ -118,6 +118,20 @@ export async function archivarPaciente(id: string, activo: boolean) {
   revalidatePath("/portal/pacientes");
 }
 
+export async function actualizarFechaAltaPaciente(id: string, mesAlta: string) {
+  await requireTerapeuta();
+  const mes = String(mesAlta || "").trim();
+  if (!mes) throw new Error("Indica el mes.");
+  const fecha_alta = `${mes}-01`;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("pacientes").update({ fecha_alta }).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/portal/pacientes/${id}`);
+  revalidatePath("/portal/pacientes");
+}
+
 // Solo se puede eliminar un paciente ya archivado, como salvaguarda extra
 // contra borrados accidentales de un caso activo. Al borrar se eliminan en
 // cascada sus sesiones/asistencia, evaluaciones y notas (fk on delete cascade).
@@ -192,6 +206,17 @@ export async function marcarAsistencia(sesionId: string, estado: "asistio" | "no
   await requireTerapeuta();
   const supabase = await createClient();
   const { error } = await supabase.from("paciente_sesiones").update({ estado }).eq("id", sesionId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/portal/asistencia");
+  revalidatePath("/portal/pacientes");
+}
+
+// Solo pensada para sesiones programadas/próximas (ver UI): elimina la fila
+// por completo, a diferencia de reagendarSesion que conserva el historial.
+export async function eliminarSesion(sesionId: string) {
+  await requireTerapeuta();
+  const supabase = await createClient();
+  const { error } = await supabase.from("paciente_sesiones").delete().eq("id", sesionId);
   if (error) throw new Error(error.message);
   revalidatePath("/portal/asistencia");
   revalidatePath("/portal/pacientes");
