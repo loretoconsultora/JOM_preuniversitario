@@ -8,6 +8,7 @@ import type { Examen, ExamenAlumno, ExamenIntento, Materia } from "@/types/datab
 import { MateriaSelector } from "@/components/materia-selector";
 import { ExtenderFechasExamenForm } from "@/components/extender-fechas-examen-form";
 import { examenCerrado, examenAunNoAbre } from "@/lib/fecha-examen";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { eliminarExamen } from "./actions";
 
 function formatFecha(fecha: string | null, hora: string | null) {
@@ -131,15 +132,13 @@ export default async function ExamenesPage({
             </h2>
           </div>
           {isDocente && (
-            <form action={eliminarExamen.bind(null, examen.id)}>
-              <button
-                type="submit"
-                aria-label="Eliminar examen"
-                className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
-              >
-                <Trash2 size={15} />
-              </button>
-            </form>
+            <ConfirmDeleteButton
+              accion={eliminarExamen.bind(null, examen.id)}
+              mensaje={`¿Eliminar el examen "${examen.titulo}"? Se perderán también las respuestas ya entregadas. Esto no se puede deshacer.`}
+              className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+            >
+              <Trash2 size={15} />
+            </ConfirmDeleteButton>
           )}
         </div>
 

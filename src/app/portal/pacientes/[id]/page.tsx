@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Archive, ArchiveRestore, Sparkles, Trash2, User } from "lucide-react";
+import { ArrowLeft, Sparkles, Trash2, User } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Paciente, PacienteDocumento, PacienteNota, PacienteSalud, PacienteSesion, Profile } from "@/types/database";
@@ -14,9 +14,10 @@ import { MotivoChip } from "@/components/motivo-chip";
 import { NotasSection } from "@/components/notas-section";
 import { PacienteSaludForm } from "@/components/paciente-salud-form";
 import { DocumentosPacienteSection } from "@/components/documentos-paciente-section";
-import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { ArchivarPacienteButton } from "@/components/archivar-paciente-button";
 import { FechaAltaEditor } from "@/components/fecha-alta-editor";
-import { archivarPaciente, eliminarPaciente } from "../actions";
+import { eliminarPaciente } from "../actions";
 
 function formatFecha(fecha: string) {
   return new Date(`${fecha}T00:00:00`).toLocaleDateString("es-MX", {
@@ -111,25 +112,17 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <form action={archivarPaciente.bind(null, id, !pacienteData.activo)}>
-            <button
-              type="submit"
-              className="text-muted inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10"
-            >
-              {pacienteData.activo ? <Archive size={13} /> : <ArchiveRestore size={13} />}
-              {pacienteData.activo ? "Archivar" : "Reactivar"}
-            </button>
-          </form>
+          <ArchivarPacienteButton id={id} activo={pacienteData.activo} />
           {!pacienteData.activo && (
-            <form action={eliminarPaciente.bind(null, id)}>
-              <ConfirmSubmitButton
-                mensaje={`¿Eliminar definitivamente a ${pacienteData.nombre}? Se borrarán también sus sesiones, evaluaciones y notas. Esto no se puede deshacer.`}
-                className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium text-jom-pink hover:bg-jom-pink/20"
-              >
-                <Trash2 size={13} />
-                Eliminar
-              </ConfirmSubmitButton>
-            </form>
+            <ConfirmDeleteButton
+              accion={eliminarPaciente.bind(null, id)}
+              mensaje={`¿Eliminar definitivamente a ${pacienteData.nombre}? Se borrarán también sus sesiones, evaluaciones y notas. Esto no se puede deshacer.`}
+              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium text-jom-pink hover:bg-jom-pink/20"
+              redirectTo="/portal/pacientes"
+            >
+              <Trash2 size={13} />
+              Eliminar
+            </ConfirmDeleteButton>
           )}
         </div>
       </div>

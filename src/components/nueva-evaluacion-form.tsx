@@ -37,7 +37,11 @@ export function NuevaEvaluacionForm({
     }
     setGuardando(true);
     try {
-      await crearEvaluacion(pacienteId, lista, conclusiones);
+      const resultado = await crearEvaluacion(pacienteId, lista, conclusiones);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setGuardada({
         body: habilidades.map((h) => [h.nombre, calificaciones[h.id]]),
         conclusiones,
@@ -45,8 +49,8 @@ export function NuevaEvaluacionForm({
       setCalificaciones({});
       setConclusiones("");
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar la evaluación.");
+    } catch {
+      setError("No se pudo guardar la evaluación. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

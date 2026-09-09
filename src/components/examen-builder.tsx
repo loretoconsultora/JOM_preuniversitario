@@ -116,13 +116,17 @@ export function ExamenBuilder({
     }
     setGenerando(true);
     try {
-      const nuevas = await generarPreguntasConIA({ materiaNombre, tema, cantidad });
-      setPreguntas((prev) => [...prev, ...nuevas]);
+      const resultado = await generarPreguntasConIA({ materiaNombre, tema, cantidad });
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
+      setPreguntas((prev) => [...prev, ...resultado.preguntas]);
       setOrigen("ia");
       setMostrarIA(false);
       setTema("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudieron generar las preguntas.");
+    } catch {
+      setError("No se pudieron generar las preguntas. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGenerando(false);
     }
@@ -136,11 +140,15 @@ export function ExamenBuilder({
     try {
       const formData = new FormData();
       formData.set("archivo", file);
-      const nuevas = await parsearCSVExamen(formData);
-      setPreguntas((prev) => [...prev, ...nuevas]);
+      const resultado = await parsearCSVExamen(formData);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
+      setPreguntas((prev) => [...prev, ...resultado.preguntas]);
       setOrigen("plantilla");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo leer el CSV.");
+    } catch {
+      setError("No se pudo leer el CSV. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setSubiendoCSV(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -181,7 +189,7 @@ export function ExamenBuilder({
     }
     setGuardando(true);
     try {
-      await crearExamen({
+      const resultado = await crearExamen({
         titulo,
         materia_id: materiaId,
         tema_id: temaId || null,
@@ -193,10 +201,15 @@ export function ExamenBuilder({
         fecha_cierre: fechaCierre || null,
         hora_cierre: horaCierre || null,
       });
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       router.push("/portal/examenes");
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar el examen.");
+    } catch {
+      setError("No se pudo guardar el examen. Revisa tu conexión e intenta de nuevo.");
+    } finally {
       setGuardando(false);
     }
   }

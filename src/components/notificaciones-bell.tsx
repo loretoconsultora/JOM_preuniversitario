@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
+import type { ActionResult } from "@/lib/action-result";
 
 export type NotificacionItem = {
   id: string;
@@ -31,8 +32,8 @@ export function NotificacionesBell({
   marcarTodasAction,
 }: {
   notificacionesIniciales: NotificacionItem[];
-  marcarLeidaAction: (id: string) => Promise<void>;
-  marcarTodasAction: () => Promise<void>;
+  marcarLeidaAction: (id: string) => Promise<ActionResult>;
+  marcarTodasAction: () => Promise<ActionResult>;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [notificaciones, setNotificaciones] = useState(notificacionesIniciales);

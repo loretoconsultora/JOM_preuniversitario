@@ -1,16 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { RECURSOS_BUCKET } from "@/lib/storage";
+import { actionError, actionOk, ERROR_INESPERADO, type ActionResult } from "@/lib/action-result";
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
 }
 
-export async function crearRecurso(formData: FormData) {
+export async function crearRecurso(formData: FormData): Promise<ActionResult> {
   const profile = await requireDocente();
 
   const titulo = String(formData.get("titulo") || "").trim();
@@ -22,71 +22,81 @@ export async function crearRecurso(formData: FormData) {
   const url = String(formData.get("url") || "").trim();
   const archivo = formData.get("archivo");
 
-  if (!titulo) throw new Error("El título es obligatorio.");
-  if (tipo !== "archivo" && tipo !== "enlace") throw new Error("Tipo de recurso inválido.");
+  if (!titulo) return actionError("El título es obligatorio.");
+  if (tipo !== "archivo" && tipo !== "enlace") return actionError("Tipo de recurso inválido.");
 
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  if (tipo === "enlace") {
-    if (!url) throw new Error("Pega el link del recurso.");
-    let urlNormalizada = url;
-    if (!/^https?:\/\//i.test(urlNormalizada)) {
-      urlNormalizada = `https://${urlNormalizada}`;
+    if (tipo === "enlace") {
+      if (!url) return actionError("Pega el link del recurso.");
+      let urlNormalizada = url;
+      if (!/^https?:\/\//i.test(urlNormalizada)) {
+        urlNormalizada = `https://${urlNormalizada}`;
+      }
+      const { error } = await supabase.from("recursos").insert({
+        titulo,
+        tipo: "enlace",
+        materia_id,
+        tema_id,
+        subtema_id,
+        url: urlNormalizada,
+        creado_por: profile.id,
+      });
+      if (error) return actionError(error.message);
+    } else {
+      if (!(archivo instanceof File) || archivo.size === 0) {
+        return actionError("Selecciona un archivo.");
+      }
+      const storagePath = `${crypto.randomUUID()}-${sanitizeFilename(archivo.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from(RECURSOS_BUCKET)
+        .upload(storagePath, archivo, { contentType: archivo.type || undefined });
+      if (uploadError) return actionError(`No se pudo subir "${archivo.name}": ${uploadError.message}`);
+
+      const { error } = await supabase.from("recursos").insert({
+        titulo,
+        tipo: "archivo",
+        materia_id,
+        tema_id,
+        subtema_id,
+        storage_path: storagePath,
+        nombre_archivo: archivo.name,
+        tipo_mime: archivo.type || null,
+        tamano_bytes: archivo.size,
+        creado_por: profile.id,
+      });
+      if (error) return actionError(error.message);
     }
-    const { error } = await supabase.from("recursos").insert({
-      titulo,
-      tipo: "enlace",
-      materia_id,
-      tema_id,
-      subtema_id,
-      url: urlNormalizada,
-      creado_por: profile.id,
-    });
-    if (error) throw new Error(error.message);
-  } else {
-    if (!(archivo instanceof File) || archivo.size === 0) {
-      throw new Error("Selecciona un archivo.");
-    }
-    const storagePath = `${crypto.randomUUID()}-${sanitizeFilename(archivo.name)}`;
-    const { error: uploadError } = await supabase.storage
-      .from(RECURSOS_BUCKET)
-      .upload(storagePath, archivo, { contentType: archivo.type || undefined });
-    if (uploadError) throw new Error(`No se pudo subir "${archivo.name}": ${uploadError.message}`);
 
-    const { error } = await supabase.from("recursos").insert({
-      titulo,
-      tipo: "archivo",
-      materia_id,
-      tema_id,
-      subtema_id,
-      storage_path: storagePath,
-      nombre_archivo: archivo.name,
-      tipo_mime: archivo.type || null,
-      tamano_bytes: archivo.size,
-      creado_por: profile.id,
-    });
-    if (error) throw new Error(error.message);
+    revalidatePath("/portal/recursos");
+    return actionOk({});
+  } catch (e) {
+    console.error("crearRecurso:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
-
-  revalidatePath("/portal/recursos");
-  redirect("/portal/recursos");
 }
 
-export async function eliminarRecurso(id: string) {
+export async function eliminarRecurso(id: string): Promise<ActionResult> {
   await requireDocente();
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { data: recurso } = await supabase
+      .from("recursos")
+      .select("storage_path")
+      .eq("id", id)
+      .single();
 
-  const { data: recurso } = await supabase
-    .from("recursos")
-    .select("storage_path")
-    .eq("id", id)
-    .single();
+    if (recurso?.storage_path) {
+      await supabase.storage.from(RECURSOS_BUCKET).remove([recurso.storage_path]);
+    }
 
-  if (recurso?.storage_path) {
-    await supabase.storage.from(RECURSOS_BUCKET).remove([recurso.storage_path]);
+    const { error } = await supabase.from("recursos").delete().eq("id", id);
+    if (error) return actionError(error.message);
+    revalidatePath("/portal/recursos");
+    return actionOk({});
+  } catch (e) {
+    console.error("eliminarRecurso:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
-
-  const { error } = await supabase.from("recursos").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/portal/recursos");
 }

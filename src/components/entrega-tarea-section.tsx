@@ -66,6 +66,7 @@ export function EntregaTareaSection({
   const [respuestaTexto, setRespuestaTexto] = useState(respuestaTextoInicial);
   const [guardandoTexto, setGuardandoTexto] = useState(false);
   const [textoGuardado, setTextoGuardado] = useState(false);
+  const [errorTexto, setErrorTexto] = useState<string | null>(null);
 
   // Preguntas
   const [mostrarPreguntas, setMostrarPreguntas] = useState(false);
@@ -94,19 +95,30 @@ export function EntregaTareaSection({
 
   async function borrarArchivo(archivoId: string) {
     try {
-      await eliminarArchivoEntrega(archivoId);
+      const resultado = await eliminarArchivoEntrega(archivoId);
+      if (!resultado.ok) {
+        setErrorArchivo(resultado.error);
+        return;
+      }
       router.refresh();
-    } catch (e) {
-      setErrorArchivo(e instanceof Error ? e.message : "No se pudo borrar el archivo.");
+    } catch {
+      setErrorArchivo("No se pudo borrar el archivo. Revisa tu conexión e intenta de nuevo.");
     }
   }
 
   async function guardarTexto() {
     setGuardandoTexto(true);
+    setErrorTexto(null);
     try {
-      await guardarRespuestaTextoEntrega(tareaId, respuestaTexto);
+      const resultado = await guardarRespuestaTextoEntrega(tareaId, respuestaTexto);
+      if (!resultado.ok) {
+        setErrorTexto(resultado.error);
+        return;
+      }
       setTextoGuardado(true);
       router.refresh();
+    } catch {
+      setErrorTexto("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardandoTexto(false);
     }
@@ -118,13 +130,17 @@ export function EntregaTareaSection({
     setCargandoPreguntas(true);
     try {
       const resultado = await obtenerPreguntasTarea(tareaId);
+      if (!resultado.ok) {
+        setErrorPreguntas(resultado.error);
+        return;
+      }
       if (resultado.yaPresentado) {
         setIntento(resultado.intento);
       } else {
         setPreguntas(resultado.preguntas);
       }
-    } catch (e) {
-      setErrorPreguntas(e instanceof Error ? e.message : "No se pudieron cargar las preguntas.");
+    } catch {
+      setErrorPreguntas("No se pudieron cargar las preguntas. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setCargandoPreguntas(false);
     }
@@ -148,6 +164,10 @@ export function EntregaTareaSection({
     setEnviandoPreguntas(true);
     try {
       const resultado = await entregarPreguntasTarea(tareaId, respuestasPreguntas);
+      if (!resultado.ok) {
+        setErrorPreguntas(resultado.error);
+        return;
+      }
       setIntento({
         id: "",
         tarea_id: tareaId,
@@ -159,8 +179,8 @@ export function EntregaTareaSection({
         created_at: new Date().toISOString(),
       });
       router.refresh();
-    } catch (e) {
-      setErrorPreguntas(e instanceof Error ? e.message : "No se pudo entregar.");
+    } catch {
+      setErrorPreguntas("No se pudo entregar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setEnviandoPreguntas(false);
     }
@@ -254,6 +274,11 @@ export function EntregaTareaSection({
             >
               {guardandoTexto ? "Guardando…" : textoGuardado ? "Guardado ✓" : "Guardar respuesta"}
             </button>
+          )}
+          {errorTexto && (
+            <p className="flex items-center gap-1 text-xs text-red-500">
+              <AlertCircle size={12} /> {errorTexto}
+            </p>
           )}
         </div>
       )}

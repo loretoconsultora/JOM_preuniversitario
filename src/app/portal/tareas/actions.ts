@@ -1,11 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TAREAS_BUCKET } from "@/lib/storage";
 import { sanitizeRichText } from "@/lib/sanitize";
+import { actionError, actionOk, ERROR_INESPERADO, type ActionResult } from "@/lib/action-result";
 import type { PreguntaBorrador } from "@/types/database";
 
 function sanitizeFilename(name: string) {
@@ -78,7 +78,7 @@ async function guardarPreguntasTarea(
   if (error) throw new Error(error.message);
 }
 
-export async function crearTarea(formData: FormData) {
+export async function crearTarea(formData: FormData): Promise<ActionResult<{ id: string }>> {
   const profile = await requireDocente();
 
   const materia_id = String(formData.get("materia_id") || "");
@@ -92,35 +92,39 @@ export async function crearTarea(formData: FormData) {
   const preguntas = parsearPreguntas(formData);
 
   if (!materia_id || !titulo) {
-    throw new Error("Materia y título son obligatorios.");
+    return actionError("Materia y título son obligatorios.");
   }
 
-  const supabase = await createClient();
-  const { data: tarea, error } = await supabase
-    .from("tareas")
-    .insert({
-      materia_id,
-      tema_id: tema_id || null,
-      titulo,
-      descripcion: descripcion || null,
-      fecha_entrega: fecha_entrega || null,
-      hora_limite: fecha_entrega && hora_limite ? hora_limite : null,
-      pide_respuesta_texto,
-      creado_por: profile.id,
-    })
-    .select("id")
-    .single();
+  try {
+    const supabase = await createClient();
+    const { data: tarea, error } = await supabase
+      .from("tareas")
+      .insert({
+        materia_id,
+        tema_id: tema_id || null,
+        titulo,
+        descripcion: descripcion || null,
+        fecha_entrega: fecha_entrega || null,
+        hora_limite: fecha_entrega && hora_limite ? hora_limite : null,
+        pide_respuesta_texto,
+        creado_por: profile.id,
+      })
+      .select("id")
+      .single();
+    if (error) return actionError(error.message);
 
-  if (error) throw new Error(error.message);
+    await subirArchivosTarea(supabase, tarea.id, archivos, profile.id);
+    await guardarPreguntasTarea(supabase, tarea.id, preguntas);
 
-  await subirArchivosTarea(supabase, tarea.id, archivos, profile.id);
-  await guardarPreguntasTarea(supabase, tarea.id, preguntas);
-
-  revalidatePath("/portal/tareas");
-  redirect("/portal/tareas");
+    revalidatePath("/portal/tareas");
+    return actionOk({ id: tarea.id as string });
+  } catch (e) {
+    console.error("crearTarea:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
 }
 
-export async function actualizarTarea(id: string, formData: FormData) {
+export async function actualizarTarea(id: string, formData: FormData): Promise<ActionResult> {
   const profile = await requireDocente();
 
   const materia_id = String(formData.get("materia_id") || "");
@@ -134,96 +138,115 @@ export async function actualizarTarea(id: string, formData: FormData) {
   const preguntas = parsearPreguntas(formData);
 
   if (!materia_id || !titulo) {
-    throw new Error("Materia y título son obligatorios.");
+    return actionError("Materia y título son obligatorios.");
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("tareas")
-    .update({
-      materia_id,
-      tema_id: tema_id || null,
-      titulo,
-      descripcion: descripcion || null,
-      fecha_entrega: fecha_entrega || null,
-      hora_limite: fecha_entrega && hora_limite ? hora_limite : null,
-      pide_respuesta_texto,
-    })
-    .eq("id", id);
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("tareas")
+      .update({
+        materia_id,
+        tema_id: tema_id || null,
+        titulo,
+        descripcion: descripcion || null,
+        fecha_entrega: fecha_entrega || null,
+        hora_limite: fecha_entrega && hora_limite ? hora_limite : null,
+        pide_respuesta_texto,
+      })
+      .eq("id", id);
+    if (error) return actionError(error.message);
 
-  if (error) throw new Error(error.message);
+    await subirArchivosTarea(supabase, id, archivos, profile.id);
 
-  await subirArchivosTarea(supabase, id, archivos, profile.id);
+    // Se reemplazan las preguntas por completo (evita lógica de diff, igual
+    // que se hace con los subtemas del temario).
+    const { error: deleteError } = await supabase.from("tarea_preguntas").delete().eq("tarea_id", id);
+    if (deleteError) return actionError(deleteError.message);
+    await guardarPreguntasTarea(supabase, id, preguntas);
 
-  // Se reemplazan las preguntas por completo (evita lógica de diff, igual
-  // que se hace con los subtemas del temario).
-  const { error: deleteError } = await supabase.from("tarea_preguntas").delete().eq("tarea_id", id);
-  if (deleteError) throw new Error(deleteError.message);
-  await guardarPreguntasTarea(supabase, id, preguntas);
-
-  revalidatePath("/portal/tareas");
-  revalidatePath(`/portal/tareas/${id}/editar`);
-  redirect("/portal/tareas");
+    revalidatePath("/portal/tareas");
+    revalidatePath(`/portal/tareas/${id}/editar`);
+    return actionOk({});
+  } catch (e) {
+    console.error("actualizarTarea:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
 }
 
-export async function eliminarArchivoTarea(archivoId: string, tareaId: string) {
+export async function eliminarArchivoTarea(archivoId: string, tareaId: string): Promise<ActionResult> {
   await requireDocente();
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { data: archivo } = await supabase
+      .from("tarea_archivos")
+      .select("storage_path")
+      .eq("id", archivoId)
+      .single();
 
-  const { data: archivo } = await supabase
-    .from("tarea_archivos")
-    .select("storage_path")
-    .eq("id", archivoId)
-    .single();
+    if (archivo?.storage_path) {
+      await supabase.storage.from(TAREAS_BUCKET).remove([archivo.storage_path]);
+    }
 
-  if (archivo?.storage_path) {
-    await supabase.storage.from(TAREAS_BUCKET).remove([archivo.storage_path]);
+    const { error } = await supabase.from("tarea_archivos").delete().eq("id", archivoId);
+    if (error) return actionError(error.message);
+
+    revalidatePath("/portal/tareas");
+    revalidatePath(`/portal/tareas/${tareaId}/editar`);
+    return actionOk({});
+  } catch (e) {
+    console.error("eliminarArchivoTarea:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
-
-  const { error } = await supabase.from("tarea_archivos").delete().eq("id", archivoId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/portal/tareas");
-  revalidatePath(`/portal/tareas/${tareaId}/editar`);
 }
 
 // Acceso rápido para reabrir/extender la fecha límite de una tarea sin
 // pasar por el formulario completo de edición — pensado para cuando una
 // tarea ya se cerró sola y el docente quiere darle más tiempo a los
 // alumnos ahí mismo, desde la lista.
-export async function extenderFechaLimiteTarea(id: string, fechaEntrega: string, horaLimite: string) {
+export async function extenderFechaLimiteTarea(id: string, fechaEntrega: string, horaLimite: string): Promise<ActionResult> {
   await requireDocente();
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("tareas")
+      .update({
+        fecha_entrega: fechaEntrega || null,
+        hora_limite: fechaEntrega && horaLimite ? horaLimite : null,
+      })
+      .eq("id", id);
+    if (error) return actionError(error.message);
 
-  const { error } = await supabase
-    .from("tareas")
-    .update({
-      fecha_entrega: fechaEntrega || null,
-      hora_limite: fechaEntrega && horaLimite ? horaLimite : null,
-    })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/portal/tareas");
-  revalidatePath("/portal/temario");
+    revalidatePath("/portal/tareas");
+    revalidatePath("/portal/temario");
+    return actionOk({});
+  } catch (e) {
+    console.error("extenderFechaLimiteTarea:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
 }
 
-export async function eliminarTarea(id: string) {
+export async function eliminarTarea(id: string): Promise<ActionResult> {
   await requireDocente();
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { data: archivos } = await supabase
+      .from("tarea_archivos")
+      .select("storage_path")
+      .eq("tarea_id", id);
 
-  const { data: archivos } = await supabase
-    .from("tarea_archivos")
-    .select("storage_path")
-    .eq("tarea_id", id);
+    if (archivos && archivos.length > 0) {
+      await supabase.storage
+        .from(TAREAS_BUCKET)
+        .remove(archivos.map((a) => a.storage_path));
+    }
 
-  if (archivos && archivos.length > 0) {
-    await supabase.storage
-      .from(TAREAS_BUCKET)
-      .remove(archivos.map((a) => a.storage_path));
+    const { error } = await supabase.from("tareas").delete().eq("id", id);
+    if (error) return actionError(error.message);
+    revalidatePath("/portal/tareas");
+    return actionOk({});
+  } catch (e) {
+    console.error("eliminarTarea:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
-
-  const { error } = await supabase.from("tareas").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/portal/tareas");
 }

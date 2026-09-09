@@ -30,11 +30,15 @@ export function DocenteMateriasEditor({
     setError(null);
     setGuardando(true);
     try {
-      await actualizarMateriasDocente(docenteId, seleccion);
+      const resultado = await actualizarMateriasDocente(docenteId, seleccion);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setAbierto(false);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar.");
+    } catch {
+      setError("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

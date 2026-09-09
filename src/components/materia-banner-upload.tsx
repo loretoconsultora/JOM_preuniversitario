@@ -15,10 +15,14 @@ export function MateriaBannerUpload({ materiaId }: { materiaId: string }) {
     try {
       const formData = new FormData();
       formData.append("banner", file);
-      await subirBannerMateria(materiaId, formData);
+      const resultado = await subirBannerMateria(materiaId, formData);
+      if (!resultado.ok) {
+        window.alert(resultado.error);
+        return;
+      }
       router.refresh();
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : "No se pudo subir el banner.");
+    } catch {
+      window.alert("No se pudo subir el banner. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setSubiendo(false);
     }

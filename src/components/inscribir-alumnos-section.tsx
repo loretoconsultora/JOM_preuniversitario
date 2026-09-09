@@ -30,11 +30,15 @@ export function InscribirAlumnosSection({
     setError(null);
     setGuardando(true);
     try {
-      await actualizarInscripcionMateria(materiaId, seleccion);
+      const resultado = await actualizarInscripcionMateria(materiaId, seleccion);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setAbierto(false);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar.");
+    } catch {
+      setError("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

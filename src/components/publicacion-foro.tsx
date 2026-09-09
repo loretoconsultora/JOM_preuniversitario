@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Paperclip, Link as LinkIcon, MessageCircle, Loader2, Send } from "lucide-react";
+import { Trash2, Paperclip, Link as LinkIcon, MessageCircle, Loader2, Send, AlertCircle } from "lucide-react";
 import { formatBytes } from "@/lib/storage";
 import { crearComentario, eliminarComentario, eliminarPublicacion } from "@/app/portal/foro/actions";
 
@@ -48,14 +48,22 @@ export function PublicacionForo({ publicacion }: { publicacion: PublicacionVM })
   const [nuevoComentario, setNuevoComentario] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [borrando, setBorrando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function publicarComentario() {
     if (!nuevoComentario.trim()) return;
     setEnviando(true);
+    setError(null);
     try {
-      await crearComentario(publicacion.id, nuevoComentario);
+      const resultado = await crearComentario(publicacion.id, nuevoComentario);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setNuevoComentario("");
       router.refresh();
+    } catch {
+      setError("No se pudo enviar el comentario. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setEnviando(false);
     }
@@ -63,9 +71,16 @@ export function PublicacionForo({ publicacion }: { publicacion: PublicacionVM })
 
   async function borrarPublicacion() {
     setBorrando(true);
+    setError(null);
     try {
-      await eliminarPublicacion(publicacion.id);
+      const resultado = await eliminarPublicacion(publicacion.id);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       router.refresh();
+    } catch {
+      setError("No se pudo eliminar la publicación. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setBorrando(false);
     }
@@ -130,6 +145,11 @@ export function PublicacionForo({ publicacion }: { publicacion: PublicacionVM })
               ? `${publicacion.comentarios.length} comentario${publicacion.comentarios.length === 1 ? "" : "s"}`
               : "Comentar"}
           </button>
+          {error && (
+            <p className="mt-1.5 flex items-center gap-1 text-xs text-red-500">
+              <AlertCircle size={12} /> {error}
+            </p>
+          )}
         </div>
       </div>
 
@@ -168,12 +188,20 @@ export function PublicacionForo({ publicacion }: { publicacion: PublicacionVM })
 function ComentarioItem({ comentario }: { comentario: ComentarioVM }) {
   const router = useRouter();
   const [borrando, setBorrando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function borrar() {
     setBorrando(true);
+    setError(null);
     try {
-      await eliminarComentario(comentario.id);
+      const resultado = await eliminarComentario(comentario.id);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       router.refresh();
+    } catch {
+      setError("No se pudo eliminar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setBorrando(false);
     }
@@ -199,6 +227,7 @@ function ComentarioItem({ comentario }: { comentario: ComentarioVM }) {
         </div>
         <p className="text-sm">{comentario.texto}</p>
         <p className="text-muted text-[11px]">{formatFecha(comentario.created_at)}</p>
+        {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
     </div>
   );

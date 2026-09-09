@@ -36,11 +36,20 @@ export function ExtenderFechasExamenForm({
     setGuardando(true);
     setError(null);
     try {
-      await actualizarFechasExamen(examenId, { fecha_apertura: fechaApertura, hora_apertura: horaApertura, fecha_cierre: fechaCierre, hora_cierre: horaCierre });
+      const resultado = await actualizarFechasExamen(examenId, {
+        fecha_apertura: fechaApertura,
+        hora_apertura: horaApertura,
+        fecha_cierre: fechaCierre,
+        hora_cierre: horaCierre,
+      });
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setAbierto(false);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudieron actualizar las fechas.");
+    } catch {
+      setError("No se pudieron actualizar las fechas. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

@@ -46,10 +46,14 @@ export function DocumentosPacienteSection({
 
   async function borrarDocumento(id: string) {
     try {
-      await eliminarDocumentoPaciente(id);
+      const resultado = await eliminarDocumentoPaciente(id);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo borrar el archivo.");
+    } catch {
+      setError("No se pudo borrar el archivo. Revisa tu conexión e intenta de nuevo.");
     }
   }
 

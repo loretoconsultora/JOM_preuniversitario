@@ -18,10 +18,11 @@ export async function subirArchivoTema(temaId: string, archivo: File) {
     .upload(storagePath, archivo, { contentType: archivo.type || undefined });
   if (uploadError) throw new Error(`No se pudo subir "${archivo.name}": ${uploadError.message}`);
 
-  await registrarArchivoTema(temaId, {
+  const resultado = await registrarArchivoTema(temaId, {
     storage_path: storagePath,
     nombre_archivo: archivo.name,
     tipo_mime: archivo.type || null,
     tamano_bytes: archivo.size,
   });
+  if (!resultado.ok) throw new Error(resultado.error);
 }

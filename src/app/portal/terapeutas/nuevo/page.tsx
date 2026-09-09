@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
+import { CrearCuentaForm } from "@/components/crear-cuenta-form";
 import { crearTerapeuta } from "../actions";
 
 export default async function NuevoTerapeutaPage() {
@@ -18,47 +19,7 @@ export default async function NuevoTerapeutaPage() {
           Se creará su cuenta de acceso al portal con el módulo de acompañamiento socioemocional (pacientes,
           asistencia y evaluaciones). Podrás compartirle el correo y contraseña al terminar.
         </p>
-        <form action={crearTerapeuta} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5 text-sm">
-            Nombre completo
-            <input
-              name="nombre_completo"
-              required
-              placeholder="Ej. Mariana Ruiz"
-              className="glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1.5 text-sm">
-            Correo electrónico
-            <input
-              type="email"
-              name="email"
-              required
-              placeholder="terapeuta@correo.com"
-              className="glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1.5 text-sm">
-            Contraseña inicial
-            <input
-              name="password"
-              placeholder="Déjalo en blanco para generar una automática"
-              className="glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
-            />
-            <span className="text-muted text-xs">
-              Mínimo 6 caracteres. El terapeuta podrá usarla para iniciar sesión de inmediato.
-            </span>
-          </label>
-
-          <button
-            type="submit"
-            className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
-          >
-            Crear terapeuta
-          </button>
-        </form>
+        <CrearCuentaForm accion={crearTerapeuta} listaHref="/portal/terapeutas" rolLabel="terapeuta" />
       </div>
     </div>
   );

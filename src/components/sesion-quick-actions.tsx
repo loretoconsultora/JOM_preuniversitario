@@ -36,12 +36,16 @@ export function SesionQuickActions({
     setCargando(true);
     setError(null);
     try {
-      await marcarAsistencia(sesionId, nuevoEstado);
+      const resultado = await marcarAsistencia(sesionId, nuevoEstado);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setEstado(nuevoEstado);
       if (nuevoEstado === "asistio") setMostrarNota(true);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo actualizar.");
+    } catch {
+      setError("No se pudo actualizar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setCargando(false);
     }
@@ -51,12 +55,16 @@ export function SesionQuickActions({
     setCargando(true);
     setError(null);
     try {
-      await guardarNotaSesion(sesionId, notaBorrador);
+      const resultado = await guardarNotaSesion(sesionId, notaBorrador);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setNota(notaBorrador);
       setMostrarNota(false);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar la nota.");
+    } catch {
+      setError("No se pudo guardar la nota. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setCargando(false);
     }
@@ -70,12 +78,16 @@ export function SesionQuickActions({
     setCargando(true);
     setError(null);
     try {
-      await reagendarSesion(sesionId, nuevaFecha, nuevaHora);
+      const resultado = await reagendarSesion(sesionId, nuevaFecha, nuevaHora);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setEstado("reagendada");
       setMostrarReagendar(false);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo reagendar.");
+    } catch {
+      setError("No se pudo reagendar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setCargando(false);
     }
@@ -86,10 +98,15 @@ export function SesionQuickActions({
     setCargando(true);
     setError(null);
     try {
-      await eliminarSesion(sesionId);
+      const resultado = await eliminarSesion(sesionId);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo eliminar la sesión.");
+    } catch {
+      setError("No se pudo eliminar la sesión. Revisa tu conexión e intenta de nuevo.");
+    } finally {
       setCargando(false);
     }
   }

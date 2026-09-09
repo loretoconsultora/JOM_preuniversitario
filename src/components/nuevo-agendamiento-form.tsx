@@ -30,16 +30,18 @@ export function NuevoAgendamientoForm({ pacienteId }: { pacienteId: string }) {
     setError(null);
     setGuardando(true);
     try {
-      if (recurrente) {
-        await crearAgendamiento(pacienteId, { recurrente: true, diaSemana, hora, fechaInicio, fechaFin: fechaFin || null });
-      } else {
-        await crearAgendamiento(pacienteId, { recurrente: false, sesiones });
+      const resultado = recurrente
+        ? await crearAgendamiento(pacienteId, { recurrente: true, diaSemana, hora, fechaInicio, fechaFin: fechaFin || null })
+        : await crearAgendamiento(pacienteId, { recurrente: false, sesiones });
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
       }
       setOpen(false);
       setSesiones([{ fecha: "", hora: "16:00" }]);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo crear el agendamiento.");
+    } catch {
+      setError("No se pudo crear el agendamiento. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

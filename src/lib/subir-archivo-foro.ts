@@ -16,7 +16,8 @@ export async function crearPublicacionConArchivo(
   data: { texto: string | null; link: string | null; archivo: File | null }
 ) {
   if (!data.archivo) {
-    await crearPublicacion(materiaId, { texto: data.texto, link: data.link, archivo: null });
+    const resultado = await crearPublicacion(materiaId, { texto: data.texto, link: data.link, archivo: null });
+    if (!resultado.ok) throw new Error(resultado.error);
     return;
   }
 
@@ -27,7 +28,7 @@ export async function crearPublicacionConArchivo(
     .upload(storagePath, data.archivo, { contentType: data.archivo.type || undefined });
   if (uploadError) throw new Error(`No se pudo subir "${data.archivo.name}": ${uploadError.message}`);
 
-  await crearPublicacion(materiaId, {
+  const resultado = await crearPublicacion(materiaId, {
     texto: data.texto,
     link: data.link,
     archivo: {
@@ -37,4 +38,5 @@ export async function crearPublicacionConArchivo(
       tamano_bytes: data.archivo.size,
     },
   });
+  if (!resultado.ok) throw new Error(resultado.error);
 }

@@ -17,11 +17,15 @@ export function FechaAltaEditor({ pacienteId, fechaAlta }: { pacienteId: string;
     setCargando(true);
     setError(null);
     try {
-      await actualizarFechaAltaPaciente(pacienteId, mes);
+      const resultado = await actualizarFechaAltaPaciente(pacienteId, mes);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setEditando(false);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo actualizar la fecha.");
+    } catch {
+      setError("No se pudo actualizar la fecha. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setCargando(false);
     }

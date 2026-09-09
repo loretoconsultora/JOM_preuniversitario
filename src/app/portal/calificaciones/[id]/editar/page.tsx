@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireDocente } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Calificacion, Materia, Profile } from "@/types/database";
-import { actualizarCalificacion } from "../../actions";
+import { EditarCalificacionForm } from "@/components/editar-calificacion-form";
 
 export default async function EditarCalificacionPage({
   params,
@@ -24,9 +24,6 @@ export default async function EditarCalificacionPage({
     supabase.from("materias").select("*").eq("id", calificacionData.materia_id).single(),
   ]);
 
-  const inputClass =
-    "glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
-
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6">
       <Link href="/portal/calificaciones" className="text-muted inline-flex items-center gap-1.5 text-sm hover:text-fg">
@@ -40,48 +37,7 @@ export default async function EditarCalificacionPage({
           {calificacionData.tarea_id && " · vinculada a una tarea"}
         </p>
 
-        <form action={actualizarCalificacion.bind(null, id)} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5 text-sm">
-            Título
-            <input name="titulo" required defaultValue={calificacionData.titulo} className={inputClass} />
-          </label>
-
-          <div className="grid grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1.5 text-sm">
-              Calificación
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                name="calificacion"
-                defaultValue={calificacionData.calificacion ?? ""}
-                className={inputClass}
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-sm">
-              Fecha
-              <input type="date" name="fecha" required defaultValue={calificacionData.fecha} className={inputClass} />
-            </label>
-          </div>
-
-          <label className="flex flex-col gap-1.5 text-sm">
-            Comentario
-            <textarea
-              name="comentario"
-              rows={3}
-              defaultValue={calificacionData.comentario ?? ""}
-              className={inputClass}
-            />
-          </label>
-
-          <button
-            type="submit"
-            className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
-          >
-            Guardar cambios
-          </button>
-        </form>
+        <EditarCalificacionForm id={id} calificacion={calificacionData} />
       </div>
     </div>
   );

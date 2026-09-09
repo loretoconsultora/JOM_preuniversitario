@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Materia, Subtema, Tema } from "@/types/database";
 import { crearRecurso } from "@/app/portal/recursos/actions";
 
@@ -13,10 +14,32 @@ export function RecursoForm({
   temas: Tema[];
   subtemas: Subtema[];
 }) {
+  const router = useRouter();
   const [tipo, setTipo] = useState<"archivo" | "enlace">("archivo");
   const [materiaId, setMateriaId] = useState("");
   const [temaId, setTemaId] = useState("");
   const [subtemaId, setSubtemaId] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setGuardando(true);
+    try {
+      const resultado = await crearRecurso(new FormData(e.currentTarget));
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
+      router.push("/portal/recursos");
+      router.refresh();
+    } catch {
+      setError("No se pudo guardar el recurso. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  }
 
   const temasDeLaMateria = useMemo(() => temas.filter((t) => t.materia_id === materiaId), [temas, materiaId]);
   const subtemasDelTema = useMemo(() => subtemas.filter((s) => s.tema_id === temaId), [subtemas, temaId]);
@@ -25,7 +48,7 @@ export function RecursoForm({
     "glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
 
   return (
-    <form action={crearRecurso} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm">
         Título
         <input name="titulo" required placeholder="Ej. Presentación: Estequiometría" className={inputClass} />
@@ -151,11 +174,14 @@ export function RecursoForm({
         </label>
       )}
 
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
       <button
         type="submit"
-        className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
+        disabled={guardando}
+        className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
       >
-        Guardar recurso
+        {guardando ? "Guardando…" : "Guardar recurso"}
       </button>
     </form>
   );

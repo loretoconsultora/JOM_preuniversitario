@@ -7,7 +7,7 @@ import { evaluacionDisponible } from "@/lib/evaluaciones-habilidades";
 import { pacienteDesdeLabel } from "@/lib/paciente-fecha";
 import { contarPorEstado, emojisAlerta } from "@/lib/estado-sesion";
 import { MotivoChip } from "@/components/motivo-chip";
-import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { eliminarPaciente } from "./actions";
 
 export default async function PacientesPage() {
@@ -133,14 +133,13 @@ export default async function PacientesPage() {
                 <Link href={`/portal/pacientes/${p.id}`} className="text-sm hover:underline">
                   {p.nombre}
                 </Link>
-                <form action={eliminarPaciente.bind(null, p.id)}>
-                  <ConfirmSubmitButton
-                    mensaje={`¿Eliminar definitivamente a ${p.nombre}? Se borrarán también sus sesiones, evaluaciones y notas. Esto no se puede deshacer.`}
-                    className="text-muted inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs hover:bg-jom-pink/20 hover:text-jom-ink"
-                  >
-                    <Trash2 size={12} /> Eliminar
-                  </ConfirmSubmitButton>
-                </form>
+                <ConfirmDeleteButton
+                  accion={eliminarPaciente.bind(null, p.id)}
+                  mensaje={`¿Eliminar definitivamente a ${p.nombre}? Se borrarán también sus sesiones, evaluaciones y notas. Esto no se puede deshacer.`}
+                  className="text-muted inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs hover:bg-jom-pink/20 hover:text-jom-ink"
+                >
+                  <Trash2 size={12} /> Eliminar
+                </ConfirmDeleteButton>
               </div>
             ))}
           </div>

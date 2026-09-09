@@ -1,15 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireDocente } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { actionError, actionOk, ERROR_INESPERADO, type ActionResult } from "@/lib/action-result";
 
 function generarPasswordTemporal() {
   return Math.random().toString(36).slice(-5) + Math.random().toString(36).slice(-5);
 }
 
-export async function crearDocente(formData: FormData) {
+export async function crearDocente(formData: FormData): Promise<ActionResult<{ email: string; password: string }>> {
   await requireDocente();
 
   const nombre_completo = String(formData.get("nombre_completo") || "").trim();
@@ -18,48 +18,58 @@ export async function crearDocente(formData: FormData) {
   const materiaIds = formData.getAll("materia_ids").map((v) => String(v)).filter(Boolean);
 
   if (!nombre_completo || !email) {
-    throw new Error("Nombre y correo son obligatorios.");
+    return actionError("Nombre y correo son obligatorios.");
   }
 
   const password = passwordInput.length >= 6 ? passwordInput : generarPasswordTemporal();
 
-  const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      role: "docente",
-      nombre_completo,
-    },
-  });
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        role: "docente",
+        nombre_completo,
+      },
+    });
+    if (error) return actionError(error.message);
 
-  if (error) throw new Error(error.message);
+    if (materiaIds.length > 0 && data.user) {
+      const { error: eMaterias } = await admin
+        .from("materia_docentes")
+        .insert(materiaIds.map((materia_id) => ({ materia_id, docente_id: data.user.id })));
+      if (eMaterias) return actionError(eMaterias.message);
+    }
 
-  if (materiaIds.length > 0 && data.user) {
-    const { error: eMaterias } = await admin
-      .from("materia_docentes")
-      .insert(materiaIds.map((materia_id) => ({ materia_id, docente_id: data.user.id })));
-    if (eMaterias) throw new Error(eMaterias.message);
+    revalidatePath("/portal/docentes");
+    return actionOk({ email, password });
+  } catch (e) {
+    console.error("crearDocente:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
-
-  revalidatePath("/portal/docentes");
-  redirect(`/portal/docentes?nuevo_correo=${encodeURIComponent(email)}&nueva_password=${encodeURIComponent(password)}`);
 }
 
-export async function actualizarMateriasDocente(docenteId: string, materiaIds: string[]) {
+export async function actualizarMateriasDocente(docenteId: string, materiaIds: string[]): Promise<ActionResult> {
   await requireDocente();
 
-  const admin = createAdminClient();
-  const { error: eDel } = await admin.from("materia_docentes").delete().eq("docente_id", docenteId);
-  if (eDel) throw new Error(eDel.message);
+  try {
+    const admin = createAdminClient();
+    const { error: eDel } = await admin.from("materia_docentes").delete().eq("docente_id", docenteId);
+    if (eDel) return actionError(eDel.message);
 
-  if (materiaIds.length > 0) {
-    const { error: eIns } = await admin
-      .from("materia_docentes")
-      .insert(materiaIds.map((materia_id) => ({ materia_id, docente_id: docenteId })));
-    if (eIns) throw new Error(eIns.message);
+    if (materiaIds.length > 0) {
+      const { error: eIns } = await admin
+        .from("materia_docentes")
+        .insert(materiaIds.map((materia_id) => ({ materia_id, docente_id: docenteId })));
+      if (eIns) return actionError(eIns.message);
+    }
+
+    revalidatePath("/portal/docentes");
+    return actionOk({});
+  } catch (e) {
+    console.error("actualizarMateriasDocente:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
-
-  revalidatePath("/portal/docentes");
 }

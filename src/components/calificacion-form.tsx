@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Examen, Materia, Profile, Tarea, Tema } from "@/types/database";
 import { crearCalificacion } from "@/app/portal/calificaciones/actions";
 
@@ -21,11 +22,33 @@ export function CalificacionForm({
   tareaIdPreseleccionada: string | null;
   alumnoIdPreseleccionado: string | null;
 }) {
+  const router = useRouter();
   const tareaPre = tareaIdPreseleccionada ? (tareas.find((t) => t.id === tareaIdPreseleccionada) ?? null) : null;
 
   const [materiaId, setMateriaId] = useState(tareaPre?.materia_id ?? "");
   const [seleccion, setSeleccion] = useState(tareaPre ? `tarea:${tareaPre.id}` : "");
   const [tituloManual, setTituloManual] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setGuardando(true);
+    try {
+      const resultado = await crearCalificacion(new FormData(e.currentTarget));
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
+      router.push("/portal/calificaciones");
+      router.refresh();
+    } catch {
+      setError("No se pudo guardar la calificación. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  }
 
   const tareasDeLaMateria = useMemo(() => tareas.filter((t) => t.materia_id === materiaId), [tareas, materiaId]);
   const examenesDeLaMateria = useMemo(() => examenes.filter((e) => e.materia_id === materiaId), [examenes, materiaId]);
@@ -64,7 +87,7 @@ export function CalificacionForm({
     "glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
 
   return (
-    <form action={crearCalificacion} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm">
         Materia
         <select
@@ -172,11 +195,14 @@ export function CalificacionForm({
         />
       </label>
 
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
       <button
         type="submit"
-        className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
+        disabled={guardando}
+        className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
       >
-        Guardar calificación
+        {guardando ? "Guardando…" : "Guardar calificación"}
       </button>
     </form>
   );

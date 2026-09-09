@@ -55,12 +55,16 @@ export function NotasSection({
     setError(null);
     setGuardando(true);
     try {
-      await agregarNotaPaciente(pacienteId, nuevo);
+      const resultado = await agregarNotaPaciente(pacienteId, nuevo);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setNuevo("");
       setResetKey((k) => k + 1);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar la nota.");
+    } catch {
+      setError("No se pudo guardar la nota. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

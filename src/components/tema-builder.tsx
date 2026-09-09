@@ -112,22 +112,31 @@ export function TemaBuilder({
     try {
       const input = { titulo, descripcion, materia_id: materiaId, orden, subtemas };
       if (temaId) {
-        await actualizarTema(temaId, input);
+        const resultado = await actualizarTema(temaId, input);
+        if (!resultado.ok) {
+          setError(resultado.error);
+          return;
+        }
         router.push("/portal/temario");
         router.refresh();
       } else {
-        const { id } = await crearTema(input);
+        const resultado = await crearTema(input);
+        if (!resultado.ok) {
+          setError(resultado.error);
+          return;
+        }
         const archivos = fileInputRef.current?.files;
         if (archivos && archivos.length > 0) {
           for (const archivo of Array.from(archivos)) {
-            await subirArchivoTema(id, archivo);
+            await subirArchivoTema(resultado.id, archivo);
           }
         }
         router.push("/portal/temario");
         router.refresh();
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar el tema.");
+    } catch {
+      setError("No se pudo guardar el tema. Revisa tu conexión e intenta de nuevo.");
+    } finally {
       setGuardando(false);
     }
   }

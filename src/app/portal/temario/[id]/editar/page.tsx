@@ -7,6 +7,7 @@ import { TEMARIO_BUCKET, formatBytes } from "@/lib/storage";
 import type { Materia, Subtema, SubtemaBorrador, SubtemaEjercicio, SubtemaVideo, Tema, TemaArchivo } from "@/types/database";
 import { TemaBuilder } from "@/components/tema-builder";
 import { TemaArchivoUploader } from "@/components/tema-archivo-uploader";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { eliminarArchivoTema } from "../../actions";
 
 export default async function EditarTemaPage({
@@ -92,15 +93,13 @@ export default async function EditarTemaPage({
               {archivo.tamano_bytes && (
                 <span className="text-muted shrink-0">{formatBytes(archivo.tamano_bytes)}</span>
               )}
-              <form action={eliminarArchivoTema.bind(null, archivo.id, id)}>
-                <button
-                  type="submit"
-                  aria-label="Eliminar archivo"
-                  className="text-muted shrink-0 rounded-full p-1 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </form>
+              <ConfirmDeleteButton
+                accion={eliminarArchivoTema.bind(null, archivo.id, id)}
+                mensaje={`¿Eliminar "${archivo.nombre_archivo}"? Esto no se puede deshacer.`}
+                className="text-muted shrink-0 rounded-full p-1 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+              >
+                <Trash2 size={13} />
+              </ConfirmDeleteButton>
             </div>
           ))}
           <TemaArchivoUploader temaId={id} />

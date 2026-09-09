@@ -11,6 +11,7 @@ import { EntregaTareaSection } from "@/components/entrega-tarea-section";
 import { MateriaSelector } from "@/components/materia-selector";
 import { ExtenderFechaLimiteForm } from "@/components/extender-fecha-limite-form";
 import { tareaCerrada } from "@/lib/fecha-limite-tarea";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { eliminarTarea } from "./actions";
 
 function formatFecha(fecha: string | null, hora: string | null) {
@@ -210,15 +211,13 @@ export default async function TareasPage({
               >
                 <Pencil size={15} />
               </Link>
-              <form action={eliminarTarea.bind(null, tarea.id)}>
-                <button
-                  type="submit"
-                  aria-label="Eliminar tarea"
-                  className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </form>
+              <ConfirmDeleteButton
+                accion={eliminarTarea.bind(null, tarea.id)}
+                mensaje={`¿Eliminar la tarea "${tarea.titulo}"? Se perderán también las entregas de los alumnos. Esto no se puede deshacer.`}
+                className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+              >
+                <Trash2 size={15} />
+              </ConfirmDeleteButton>
             </div>
           )}
         </div>

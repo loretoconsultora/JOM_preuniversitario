@@ -40,14 +40,18 @@ export function TomarAsistenciaForm({
     setGuardando(true);
     try {
       const asistencias = alumnos.map((a) => ({ alumno_id: a.id, presente: presentes.has(a.id) }));
-      await crearSesionAsistencia(materiaId, temaId || null, fecha, nota, asistencias);
+      const resultado = await crearSesionAsistencia(materiaId, temaId || null, fecha, nota, asistencias);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setPresentes(new Set());
       setTemaId("");
       setNota("");
       setGuardado(true);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar la asistencia.");
+    } catch {
+      setError("No se pudo guardar la asistencia. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

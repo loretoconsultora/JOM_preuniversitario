@@ -17,11 +17,15 @@ export function HabilidadChip({ habilidad }: { habilidad: Habilidad }) {
     setError(null);
     setCargando(true);
     try {
-      await actualizarHabilidad(habilidad.id, nombre);
+      const resultado = await actualizarHabilidad(habilidad.id, nombre);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setEditando(false);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar.");
+    } catch {
+      setError("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setCargando(false);
     }
@@ -38,10 +42,15 @@ export function HabilidadChip({ habilidad }: { habilidad: Habilidad }) {
     setError(null);
     setCargando(true);
     try {
-      await eliminarHabilidad(habilidad.id);
+      const resultado = await eliminarHabilidad(habilidad.id);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo eliminar.");
+    } catch {
+      setError("No se pudo eliminar. Revisa tu conexión e intenta de nuevo.");
+    } finally {
       setCargando(false);
     }
   }

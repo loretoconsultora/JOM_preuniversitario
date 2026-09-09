@@ -7,6 +7,7 @@ import { TEMARIO_BUCKET, MATERIA_BANNERS_BUCKET } from "@/lib/storage";
 import { toYoutubeEmbedUrl } from "@/lib/youtube";
 import { createAnthropicClient } from "@/lib/anthropic";
 import { extraerContenidoArchivo } from "@/lib/extraer-texto-archivo";
+import { actionError, actionOk, ERROR_INESPERADO, type ActionResult } from "@/lib/action-result";
 import type { SubtemaBorrador, TemaImportado } from "@/types/database";
 
 function normalizarUrl(url: string) {
@@ -83,33 +84,38 @@ export async function crearTema(input: {
   materia_id: string;
   orden: number;
   subtemas: SubtemaBorrador[];
-}) {
+}): Promise<ActionResult<{ id: string }>> {
   const profile = await requireDocente();
 
   const titulo = input.titulo.trim();
-  if (!titulo) throw new Error("El título del tema es obligatorio.");
-  if (!input.materia_id) throw new Error("Selecciona una materia.");
-  validarSubtemas(input.subtemas);
+  if (!titulo) return actionError("El título del tema es obligatorio.");
+  if (!input.materia_id) return actionError("Selecciona una materia.");
 
-  const supabase = await createClient();
-  const { data: tema, error } = await supabase
-    .from("temas")
-    .insert({
-      titulo,
-      descripcion: input.descripcion.trim() || null,
-      materia_id: input.materia_id,
-      orden: input.orden || 0,
-      creado_por: profile.id,
-    })
-    .select("id")
-    .single();
+  try {
+    validarSubtemas(input.subtemas);
 
-  if (error) throw new Error(error.message);
+    const supabase = await createClient();
+    const { data: tema, error } = await supabase
+      .from("temas")
+      .insert({
+        titulo,
+        descripcion: input.descripcion.trim() || null,
+        materia_id: input.materia_id,
+        orden: input.orden || 0,
+        creado_por: profile.id,
+      })
+      .select("id")
+      .single();
+    if (error) return actionError(error.message);
 
-  await guardarSubtemas(supabase, tema.id, input.subtemas, profile.id);
+    await guardarSubtemas(supabase, tema.id, input.subtemas, profile.id);
 
-  revalidatePath("/portal/temario");
-  return { id: tema.id as string };
+    revalidatePath("/portal/temario");
+    return actionOk({ id: tema.id as string });
+  } catch (e) {
+    console.error("crearTema:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
 }
 
 export async function actualizarTema(
@@ -121,34 +127,41 @@ export async function actualizarTema(
     orden: number;
     subtemas: SubtemaBorrador[];
   }
-) {
+): Promise<ActionResult> {
   const profile = await requireDocente();
 
   const titulo = input.titulo.trim();
-  if (!titulo) throw new Error("El título del tema es obligatorio.");
-  if (!input.materia_id) throw new Error("Selecciona una materia.");
-  validarSubtemas(input.subtemas);
+  if (!titulo) return actionError("El título del tema es obligatorio.");
+  if (!input.materia_id) return actionError("Selecciona una materia.");
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("temas")
-    .update({
-      titulo,
-      descripcion: input.descripcion.trim() || null,
-      materia_id: input.materia_id,
-      orden: input.orden || 0,
-    })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+  try {
+    validarSubtemas(input.subtemas);
 
-  // Se reemplazan los subtemas por completo (evita lógica de diff).
-  const { error: deleteError } = await supabase.from("subtemas").delete().eq("tema_id", id);
-  if (deleteError) throw new Error(deleteError.message);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("temas")
+      .update({
+        titulo,
+        descripcion: input.descripcion.trim() || null,
+        materia_id: input.materia_id,
+        orden: input.orden || 0,
+      })
+      .eq("id", id);
+    if (error) return actionError(error.message);
 
-  await guardarSubtemas(supabase, id, input.subtemas, profile.id);
+    // Se reemplazan los subtemas por completo (evita lógica de diff).
+    const { error: deleteError } = await supabase.from("subtemas").delete().eq("tema_id", id);
+    if (deleteError) return actionError(deleteError.message);
 
-  revalidatePath("/portal/temario");
-  revalidatePath(`/portal/temario/${id}/editar`);
+    await guardarSubtemas(supabase, id, input.subtemas, profile.id);
+
+    revalidatePath("/portal/temario");
+    revalidatePath(`/portal/temario/${id}/editar`);
+    return actionOk({});
+  } catch (e) {
+    console.error("actualizarTema:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
 }
 
 // El archivo se sube directo a Storage desde el navegador (ver TemaArchivoUploader):
@@ -157,57 +170,72 @@ export async function actualizarTema(
 export async function registrarArchivoTema(
   temaId: string,
   archivo: { storage_path: string; nombre_archivo: string; tipo_mime: string | null; tamano_bytes: number }
-) {
+): Promise<ActionResult> {
   const profile = await requireDocente();
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("tema_archivos").insert({
+      tema_id: temaId,
+      storage_path: archivo.storage_path,
+      nombre_archivo: archivo.nombre_archivo,
+      tipo_mime: archivo.tipo_mime,
+      tamano_bytes: archivo.tamano_bytes,
+      creado_por: profile.id,
+    });
+    if (error) return actionError(error.message);
 
-  const { error } = await supabase.from("tema_archivos").insert({
-    tema_id: temaId,
-    storage_path: archivo.storage_path,
-    nombre_archivo: archivo.nombre_archivo,
-    tipo_mime: archivo.tipo_mime,
-    tamano_bytes: archivo.tamano_bytes,
-    creado_por: profile.id,
-  });
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/portal/temario");
-  revalidatePath(`/portal/temario/${temaId}/editar`);
+    revalidatePath("/portal/temario");
+    revalidatePath(`/portal/temario/${temaId}/editar`);
+    return actionOk({});
+  } catch (e) {
+    console.error("registrarArchivoTema:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
 }
 
-export async function eliminarArchivoTema(archivoId: string, temaId: string) {
+export async function eliminarArchivoTema(archivoId: string, temaId: string): Promise<ActionResult> {
   await requireDocente();
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { data: archivo } = await supabase
+      .from("tema_archivos")
+      .select("storage_path")
+      .eq("id", archivoId)
+      .single();
 
-  const { data: archivo } = await supabase
-    .from("tema_archivos")
-    .select("storage_path")
-    .eq("id", archivoId)
-    .single();
+    if (archivo?.storage_path) {
+      await supabase.storage.from(TEMARIO_BUCKET).remove([archivo.storage_path]);
+    }
 
-  if (archivo?.storage_path) {
-    await supabase.storage.from(TEMARIO_BUCKET).remove([archivo.storage_path]);
+    const { error } = await supabase.from("tema_archivos").delete().eq("id", archivoId);
+    if (error) return actionError(error.message);
+
+    revalidatePath("/portal/temario");
+    revalidatePath(`/portal/temario/${temaId}/editar`);
+    return actionOk({});
+  } catch (e) {
+    console.error("eliminarArchivoTema:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
-
-  const { error } = await supabase.from("tema_archivos").delete().eq("id", archivoId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/portal/temario");
-  revalidatePath(`/portal/temario/${temaId}/editar`);
 }
 
-export async function eliminarTema(id: string) {
+export async function eliminarTema(id: string): Promise<ActionResult> {
   await requireDocente();
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { data: archivos } = await supabase.from("tema_archivos").select("storage_path").eq("tema_id", id);
+    if (archivos && archivos.length > 0) {
+      await supabase.storage.from(TEMARIO_BUCKET).remove(archivos.map((a) => a.storage_path));
+    }
 
-  const { data: archivos } = await supabase.from("tema_archivos").select("storage_path").eq("tema_id", id);
-  if (archivos && archivos.length > 0) {
-    await supabase.storage.from(TEMARIO_BUCKET).remove(archivos.map((a) => a.storage_path));
+    const { error } = await supabase.from("temas").delete().eq("id", id);
+    if (error) return actionError(error.message);
+    revalidatePath("/portal/temario");
+    return actionOk({});
+  } catch (e) {
+    console.error("eliminarTema:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
-
-  const { error } = await supabase.from("temas").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/portal/temario");
 }
 
 // Next.js oculta en producción el mensaje de cualquier error que se *lance*
@@ -370,31 +398,37 @@ export async function crearTemasImportados(materiaId: string, temas: TemaImporta
   }
 }
 
-export async function subirBannerMateria(materiaId: string, formData: FormData) {
+export async function subirBannerMateria(materiaId: string, formData: FormData): Promise<ActionResult> {
   await requireDocente();
   const archivo = formData.get("banner");
-  if (!(archivo instanceof File) || archivo.size === 0) throw new Error("Selecciona una imagen.");
-  if (!archivo.type.startsWith("image/")) throw new Error("El archivo debe ser una imagen.");
-  if (archivo.size > 5 * 1024 * 1024) throw new Error("La imagen no puede pesar más de 5 MB.");
+  if (!(archivo instanceof File) || archivo.size === 0) return actionError("Selecciona una imagen.");
+  if (!archivo.type.startsWith("image/")) return actionError("El archivo debe ser una imagen.");
+  if (archivo.size > 5 * 1024 * 1024) return actionError("La imagen no puede pesar más de 5 MB.");
 
   const extension = archivo.name.split(".").pop()?.toLowerCase() || "jpg";
   const storagePath = `${materiaId}/banner.${extension}`;
 
-  const supabase = await createClient();
-  const { error: uploadError } = await supabase.storage
-    .from(MATERIA_BANNERS_BUCKET)
-    .upload(storagePath, archivo, { contentType: archivo.type, upsert: true });
-  if (uploadError) throw new Error(uploadError.message);
+  try {
+    const supabase = await createClient();
+    const { error: uploadError } = await supabase.storage
+      .from(MATERIA_BANNERS_BUCKET)
+      .upload(storagePath, archivo, { contentType: archivo.type, upsert: true });
+    if (uploadError) return actionError(uploadError.message);
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(MATERIA_BANNERS_BUCKET).getPublicUrl(storagePath);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(MATERIA_BANNERS_BUCKET).getPublicUrl(storagePath);
 
-  const { error } = await supabase
-    .from("materias")
-    .update({ banner_url: `${publicUrl}?t=${Date.now()}` })
-    .eq("id", materiaId);
-  if (error) throw new Error(error.message);
+    const { error } = await supabase
+      .from("materias")
+      .update({ banner_url: `${publicUrl}?t=${Date.now()}` })
+      .eq("id", materiaId);
+    if (error) return actionError(error.message);
 
-  revalidatePath("/portal/temario");
+    revalidatePath("/portal/temario");
+    return actionOk({});
+  } catch (e) {
+    console.error("subirBannerMateria:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
 }

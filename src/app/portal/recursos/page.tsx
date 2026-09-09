@@ -3,6 +3,7 @@ import { Plus, Trash2, FileText, Link2, Eye } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Materia, Recurso, RecursoVista } from "@/types/database";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { eliminarRecurso } from "./actions";
 
 export default async function RecursosPage() {
@@ -82,15 +83,13 @@ export default async function RecursosPage() {
                     </h2>
                   </div>
                   {isDocente && (
-                    <form action={eliminarRecurso.bind(null, recurso.id)}>
-                      <button
-                        type="submit"
-                        aria-label="Eliminar recurso"
-                        className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </form>
+                    <ConfirmDeleteButton
+                      accion={eliminarRecurso.bind(null, recurso.id)}
+                      mensaje={`¿Eliminar el recurso "${recurso.titulo}"? Esto no se puede deshacer.`}
+                      className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                    >
+                      <Trash2 size={15} />
+                    </ConfirmDeleteButton>
                   )}
                 </div>
 

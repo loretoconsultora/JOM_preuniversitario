@@ -26,10 +26,14 @@ export function PerfilForm({ profile }: { profile: Profile }) {
     setError(null);
     setGuardandoNombre(true);
     try {
-      await actualizarNombre(nombre);
+      const resultado = await actualizarNombre(nombre);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar el nombre.");
+    } catch {
+      setError("No se pudo guardar el nombre. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardandoNombre(false);
     }
@@ -43,10 +47,15 @@ export function PerfilForm({ profile }: { profile: Profile }) {
     try {
       const formData = new FormData();
       formData.append("avatar", file);
-      await subirAvatar(formData);
+      const resultado = await subirAvatar(formData);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        setAvatarUrl(profile.avatar_url);
+        return;
+      }
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo subir la foto.");
+    } catch {
+      setError("No se pudo subir la foto. Revisa tu conexión e intenta de nuevo.");
       setAvatarUrl(profile.avatar_url);
     } finally {
       setSubiendoFoto(false);

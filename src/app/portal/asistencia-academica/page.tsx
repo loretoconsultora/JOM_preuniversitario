@@ -8,6 +8,7 @@ import type { ClaseAsistencia, ClaseSesion, Profile, Tema } from "@/types/databa
 import { TomarAsistenciaForm } from "@/components/tomar-asistencia-form";
 import { InscribirAlumnosSection } from "@/components/inscribir-alumnos-section";
 import { MateriaSelector } from "@/components/materia-selector";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { eliminarSesionAsistencia } from "./actions";
 
 function formatFecha(fecha: string) {
@@ -146,15 +147,13 @@ export default async function AsistenciaAcademicaPage({
                           <Users size={13} />
                           {presentesPorSesion.get(s.id) ?? 0}/{totalPorSesion.get(s.id) ?? 0}
                         </span>
-                        <form action={eliminarSesionAsistencia.bind(null, s.id)}>
-                          <button
-                            type="submit"
-                            aria-label="Eliminar clase"
-                            className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </form>
+                        <ConfirmDeleteButton
+                          accion={eliminarSesionAsistencia.bind(null, s.id)}
+                          mensaje="¿Eliminar esta clase? Se borrará también la asistencia registrada. Esto no se puede deshacer."
+                          className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                        >
+                          <Trash2 size={14} />
+                        </ConfirmDeleteButton>
                       </div>
                     </div>
                   ))}

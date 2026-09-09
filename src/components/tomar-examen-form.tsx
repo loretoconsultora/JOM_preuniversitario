@@ -34,10 +34,15 @@ export function TomarExamenForm({
     }
     setEnviando(true);
     try {
-      await entregarExamen(examenId, respuestas);
+      const resultado = await entregarExamen(examenId, respuestas);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo entregar el examen.");
+    } catch {
+      setError("No se pudo entregar el examen. Revisa tu conexión e intenta de nuevo.");
+    } finally {
       setEnviando(false);
     }
   }

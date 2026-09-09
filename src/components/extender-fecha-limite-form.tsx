@@ -30,11 +30,15 @@ export function ExtenderFechaLimiteForm({
     setGuardando(true);
     setError(null);
     try {
-      await extenderFechaLimiteTarea(tareaId, fecha, hora);
+      const resultado = await extenderFechaLimiteTarea(tareaId, fecha, hora);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setAbierto(false);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo actualizar la fecha límite.");
+    } catch {
+      setError("No se pudo actualizar la fecha límite. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

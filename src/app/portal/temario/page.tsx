@@ -43,6 +43,7 @@ import { MateriaBannerUpload } from "@/components/materia-banner-upload";
 import { ArchivoPreview } from "@/components/archivo-preview";
 import { TextoConLinks } from "@/components/texto-con-links";
 import { SubirMaterialModal } from "@/components/subir-material-modal";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { eliminarTema } from "./actions";
 
 // Los tonos se mezclan siempre con blanco (no con el fondo de la página) para
@@ -399,15 +400,13 @@ export default async function TemarioPage({
                     {isDocente && (
                       <>
                         <TemaEditLink temaId={tema.id} />
-                        <form action={eliminarTema.bind(null, tema.id)}>
-                          <button
-                            type="submit"
-                            aria-label="Eliminar tema"
-                            className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </form>
+                        <ConfirmDeleteButton
+                          accion={eliminarTema.bind(null, tema.id)}
+                          mensaje={`¿Eliminar el tema "${tema.titulo}"? Se perderán también sus subtemas y archivos. Esto no se puede deshacer.`}
+                          className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                        >
+                          <Trash2 size={15} />
+                        </ConfirmDeleteButton>
                       </>
                     )}
                     <ChevronDown size={16} className="text-muted transition-transform group-open:rotate-180" />

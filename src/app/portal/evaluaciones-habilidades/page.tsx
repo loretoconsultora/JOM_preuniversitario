@@ -7,7 +7,7 @@ import { evaluacionDisponible } from "@/lib/evaluaciones-habilidades";
 import { NuevaEvaluacionForm } from "@/components/nueva-evaluacion-form";
 import { HabilidadChip } from "@/components/habilidad-chip";
 import { DescargarTablaPDF } from "@/components/descargar-tabla-pdf";
-import { crearHabilidad } from "./actions";
+import { NuevaHabilidadForm } from "@/components/nueva-habilidad-form";
 
 export default async function EvaluacionesHabilidadesPage({
   searchParams,
@@ -93,20 +93,7 @@ export default async function EvaluacionesHabilidadesPage({
             <HabilidadChip key={h.id} habilidad={h} />
           ))}
         </div>
-        <form action={crearHabilidad} className="flex items-center gap-2">
-          <input
-            name="nombre"
-            required
-            placeholder="Nueva habilidad (ej. Regulación emocional)"
-            className="glass flex-1 rounded-xl px-4 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink"
-          />
-          <button
-            type="submit"
-            className="shrink-0 rounded-full bg-jom-ink px-4 py-2 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 dark:bg-jom-white dark:text-jom-ink"
-          >
-            Agregar
-          </button>
-        </form>
+        <NuevaHabilidadForm />
       </div>
 
       {pacientesList.length === 0 ? (

@@ -32,7 +32,7 @@ export function PacienteSaludForm({ pacienteId, salud }: { pacienteId: string; s
     setError(null);
     setGuardando(true);
     try {
-      await guardarPacienteSalud(pacienteId, {
+      const resultado = await guardarPacienteSalud(pacienteId, {
         medicacion_toma: medicacionToma,
         medicacion_cual: medicacionCual.trim() || null,
         medicacion_dosis: medicacionDosis.trim() || null,
@@ -40,10 +40,14 @@ export function PacienteSaludForm({ pacienteId, salud }: { pacienteId: string; s
         asistencia_tipos: asistenciaTipos,
         asistencia_detalle: asistenciaDetalle.trim() || null,
       });
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setGuardado(true);
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar.");
+    } catch {
+      setError("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }

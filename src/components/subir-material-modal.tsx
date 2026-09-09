@@ -54,19 +54,23 @@ export function SubirMaterialModal({
     setCreandoTemaLoading(true);
     setError(null);
     try {
-      const { id } = await crearTema({
+      const resultado = await crearTema({
         titulo,
         descripcion: "",
         materia_id: materiaId,
         orden: temas.length,
         subtemas: [],
       });
-      setTemas((prev) => [...prev, { id, titulo }]);
-      setTemaId(id);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
+      setTemas((prev) => [...prev, { id: resultado.id, titulo }]);
+      setTemaId(resultado.id);
       setNuevoTemaTitulo("");
       setCreandoTema(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo crear el tema.");
+    } catch {
+      setError("No se pudo crear el tema. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setCreandoTemaLoading(false);
     }
