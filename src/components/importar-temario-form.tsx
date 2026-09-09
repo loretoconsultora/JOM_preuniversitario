@@ -37,14 +37,18 @@ export function ImportarTemarioForm({ materias }: { materias: Materia[] }) {
       const formData = new FormData();
       formData.set("archivo", archivo);
       const resultado = await extraerTemarioConIA(formData);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
       setTemas(resultado.temas);
     } catch (e) {
-      const mensaje = e instanceof Error ? e.message : "";
-      // Los errores no controlados (fallas del framework, del proveedor de
-      // IA, etc.) llegan con un mensaje genérico y sin detalle en producción.
+      // Esto solo debería pasar por fallas no controladas (framework, red,
+      // etc.): la acción ya devuelve sus propios errores como dato, sin
+      // lanzarlos, así que su mensaje real siempre llega arriba.
       setError(
-        mensaje && !mensaje.includes("Server Components render")
-          ? mensaje
+        e instanceof Error && !e.message.includes("Server Components render")
+          ? e.message
           : "No se pudo analizar el archivo. Puede deberse a que el documento es muy pesado o tiene un formato poco común: prueba con un archivo más liviano o en otro formato (Word, CSV) y vuelve a intentar."
       );
     } finally {
@@ -86,11 +90,20 @@ export function ImportarTemarioForm({ materias }: { materias: Materia[] }) {
     }
     setGuardando(true);
     try {
-      await crearTemasImportados(materiaId, temas);
+      const resultado = await crearTemasImportados(materiaId, temas);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        setGuardando(false);
+        return;
+      }
       router.push("/portal/temario");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar el temario.");
+      setError(
+        e instanceof Error && !e.message.includes("Server Components render")
+          ? e.message
+          : "No se pudo guardar el temario. Intenta de nuevo."
+      );
       setGuardando(false);
     }
   }

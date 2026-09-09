@@ -210,133 +210,164 @@ export async function eliminarTema(id: string) {
   revalidatePath("/portal/temario");
 }
 
-export async function extraerTemarioConIA(formData: FormData): Promise<{ temas: TemaImportado[] }> {
+// Next.js oculta en producción el mensaje de cualquier error que se *lance*
+// (throw) desde una Server Action — el cliente solo recibe un mensaje
+// genérico con un "digest". Por eso estas dos acciones devuelven el error
+// como dato (`{ ok: false, error }`) en vez de lanzarlo: así el mensaje real
+// ("El archivo no puede pesar más de 15 MB.", errores de la IA, etc.) sí le
+// llega al docente. Ver el bloque try/catch más abajo, que además atrapa
+// cualquier excepción inesperada para no dejar nunca que se escape un throw.
+export type ExtraerTemarioResultado = { ok: true; temas: TemaImportado[] } | { ok: false; error: string };
+
+export async function extraerTemarioConIA(formData: FormData): Promise<ExtraerTemarioResultado> {
   await requireDocente();
 
-  const file = formData.get("archivo");
-  if (!(file instanceof File) || file.size === 0) throw new Error("Selecciona un archivo.");
-  if (file.size > 15 * 1024 * 1024) throw new Error("El archivo no puede pesar más de 15 MB.");
+  try {
+    const file = formData.get("archivo");
+    if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Selecciona un archivo." };
+    if (file.size > 15 * 1024 * 1024) {
+      return { ok: false, error: "El archivo no puede pesar más de 15 MB. Comprime el PDF o divídelo en partes más pequeñas." };
+    }
 
-  const contenido = await extraerContenidoArchivo(file);
+    const contenido = await extraerContenidoArchivo(file);
 
-  const instrucciones =
-    "Analiza el documento adjunto, que contiene el temario de un curso o taller. Extrae su estructura completa " +
-    "como una lista de TEMAS (unidades o módulos principales) y, dentro de cada uno, sus SUBTEMAS. Conserva el " +
-    "texto original de los títulos lo más fiel posible (no traduzcas ni resumas de más). Si un subtema tiene una " +
-    'lista de puntos numerados (ej. "1.1.1 ..., 1.1.2 ..."), ponlos juntos en "detalle" separados por punto y ' +
-    "coma. Si el documento no tiene una jerarquía clara de temas/subtemas, agrupa el contenido de la forma más " +
-    "razonable posible. No inventes contenido que no esté en el documento.";
+    const instrucciones =
+      "Analiza el documento adjunto, que contiene el temario de un curso o taller. Extrae su estructura completa " +
+      "como una lista de TEMAS (unidades o módulos principales) y, dentro de cada uno, sus SUBTEMAS. Conserva el " +
+      "texto original de los títulos lo más fiel posible (no traduzcas ni resumas de más). Si un subtema tiene una " +
+      'lista de puntos numerados (ej. "1.1.1 ..., 1.1.2 ..."), ponlos juntos en "detalle" separados por punto y ' +
+      "coma. Si el documento no tiene una jerarquía clara de temas/subtemas, agrupa el contenido de la forma más " +
+      "razonable posible. No inventes contenido que no esté en el documento.";
 
-  const client = createAnthropicClient();
-  const response = await client.messages.create({
-    model: "claude-opus-5",
-    max_tokens: 8192,
-    messages: [
-      {
-        role: "user",
-        content:
-          contenido.tipo === "pdf"
-            ? [
-                {
-                  type: "document" as const,
-                  source: { type: "base64" as const, media_type: "application/pdf" as const, data: contenido.base64 },
-                },
-                { type: "text" as const, text: instrucciones },
-              ]
-            : [{ type: "text" as const, text: `${instrucciones}\n\n--- CONTENIDO DEL DOCUMENTO ---\n${contenido.texto}` }],
-      },
-    ],
-    output_config: {
-      format: {
-        type: "json_schema",
-        schema: {
-          type: "object",
-          properties: {
-            temas: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  titulo: { type: "string" },
-                  descripcion: { type: "string" },
-                  subtemas: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        titulo: { type: "string" },
-                        detalle: { type: "string" },
+    const client = createAnthropicClient();
+    const response = await client.messages.create({
+      model: "claude-opus-5",
+      max_tokens: 8192,
+      messages: [
+        {
+          role: "user",
+          content:
+            contenido.tipo === "pdf"
+              ? [
+                  {
+                    type: "document" as const,
+                    source: { type: "base64" as const, media_type: "application/pdf" as const, data: contenido.base64 },
+                  },
+                  { type: "text" as const, text: instrucciones },
+                ]
+              : [{ type: "text" as const, text: `${instrucciones}\n\n--- CONTENIDO DEL DOCUMENTO ---\n${contenido.texto}` }],
+        },
+      ],
+      output_config: {
+        format: {
+          type: "json_schema",
+          schema: {
+            type: "object",
+            properties: {
+              temas: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    titulo: { type: "string" },
+                    descripcion: { type: "string" },
+                    subtemas: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          titulo: { type: "string" },
+                          detalle: { type: "string" },
+                        },
+                        required: ["titulo", "detalle"],
+                        additionalProperties: false,
                       },
-                      required: ["titulo", "detalle"],
-                      additionalProperties: false,
                     },
                   },
+                  required: ["titulo", "descripcion", "subtemas"],
+                  additionalProperties: false,
                 },
-                required: ["titulo", "descripcion", "subtemas"],
-                additionalProperties: false,
               },
             },
+            required: ["temas"],
+            additionalProperties: false,
           },
-          required: ["temas"],
-          additionalProperties: false,
         },
       },
-    },
-  });
+    });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("La IA no devolvió una respuesta válida.");
-  }
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      return { ok: false, error: "La IA no devolvió una respuesta válida." };
+    }
 
-  const parsed = JSON.parse(textBlock.text) as { temas: TemaImportado[] };
-  if (!parsed.temas || parsed.temas.length === 0) {
-    throw new Error("No se pudo identificar ningún tema en el documento.");
+    let parsed: { temas: TemaImportado[] };
+    try {
+      parsed = JSON.parse(textBlock.text) as { temas: TemaImportado[] };
+    } catch {
+      return {
+        ok: false,
+        error: "La IA devolvió una respuesta que no se pudo interpretar. Intenta de nuevo o con un archivo más simple.",
+      };
+    }
+    if (!parsed.temas || parsed.temas.length === 0) {
+      return { ok: false, error: "No se pudo identificar ningún tema en el documento." };
+    }
+    return { ok: true, temas: parsed.temas };
+  } catch (e) {
+    console.error("extraerTemarioConIA:", e);
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo analizar el archivo." };
   }
-  return parsed;
 }
 
-export async function crearTemasImportados(materiaId: string, temas: TemaImportado[]) {
+export type CrearTemasImportadosResultado = { ok: true; count: number } | { ok: false; error: string };
+
+export async function crearTemasImportados(materiaId: string, temas: TemaImportado[]): Promise<CrearTemasImportadosResultado> {
   const profile = await requireDocente();
-  if (!materiaId) throw new Error("Selecciona una materia.");
-  if (temas.length === 0) throw new Error("No hay temas para guardar.");
+  if (!materiaId) return { ok: false, error: "Selecciona una materia." };
+  if (temas.length === 0) return { ok: false, error: "No hay temas para guardar." };
 
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const { data: existentes } = await supabase
-    .from("temas")
-    .select("orden")
-    .eq("materia_id", materiaId)
-    .order("orden", { ascending: false })
-    .limit(1);
-  let orden = (existentes?.[0]?.orden ?? -1) + 1;
-
-  for (const tema of temas) {
-    const titulo = tema.titulo.trim();
-    if (!titulo) continue;
-
-    const { data: temaCreado, error } = await supabase
+    const { data: existentes } = await supabase
       .from("temas")
-      .insert({
-        titulo,
-        descripcion: tema.descripcion.trim() || null,
-        materia_id: materiaId,
-        orden,
-        creado_por: profile.id,
-      })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    orden += 1;
+      .select("orden")
+      .eq("materia_id", materiaId)
+      .order("orden", { ascending: false })
+      .limit(1);
+    let orden = (existentes?.[0]?.orden ?? -1) + 1;
 
-    const subtemas: SubtemaBorrador[] = tema.subtemas
-      .filter((s) => s.titulo.trim())
-      .map((s) => ({ titulo: s.titulo.trim(), detalle: s.detalle.trim(), ejercicios: [], videos: [] }));
-    await guardarSubtemas(supabase, temaCreado.id, subtemas, profile.id);
+    for (const tema of temas) {
+      const titulo = tema.titulo.trim();
+      if (!titulo) continue;
+
+      const { data: temaCreado, error } = await supabase
+        .from("temas")
+        .insert({
+          titulo,
+          descripcion: tema.descripcion.trim() || null,
+          materia_id: materiaId,
+          orden,
+          creado_por: profile.id,
+        })
+        .select("id")
+        .single();
+      if (error) return { ok: false, error: error.message };
+      orden += 1;
+
+      const subtemas: SubtemaBorrador[] = tema.subtemas
+        .filter((s) => s.titulo.trim())
+        .map((s) => ({ titulo: s.titulo.trim(), detalle: s.detalle.trim(), ejercicios: [], videos: [] }));
+      await guardarSubtemas(supabase, temaCreado.id, subtemas, profile.id);
+    }
+
+    revalidatePath("/portal/temario");
+    return { ok: true, count: temas.length };
+  } catch (e) {
+    console.error("crearTemasImportados:", e);
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar el temario." };
   }
-
-  revalidatePath("/portal/temario");
-  return { count: temas.length };
 }
 
 export async function subirBannerMateria(materiaId: string, formData: FormData) {
