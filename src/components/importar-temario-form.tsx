@@ -24,6 +24,14 @@ export function ImportarTemarioForm({ materias }: { materias: Materia[] }) {
       setError("Selecciona un archivo.");
       return;
     }
+    if (archivo.size > 15 * 1024 * 1024) {
+      // Se valida también aquí, antes de enviar el archivo: si se manda un
+      // archivo más pesado que el límite configurado en el servidor, la
+      // petición falla a nivel de framework (antes de llegar a nuestro
+      // código) y el usuario solo ve un error genérico sin explicación.
+      setError("El archivo no puede pesar más de 15 MB. Comprime el PDF o divídelo en partes más pequeñas.");
+      return;
+    }
     setAnalizando(true);
     try {
       const formData = new FormData();
@@ -31,7 +39,14 @@ export function ImportarTemarioForm({ materias }: { materias: Materia[] }) {
       const resultado = await extraerTemarioConIA(formData);
       setTemas(resultado.temas);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo analizar el archivo.");
+      const mensaje = e instanceof Error ? e.message : "";
+      // Los errores no controlados (fallas del framework, del proveedor de
+      // IA, etc.) llegan con un mensaje genérico y sin detalle en producción.
+      setError(
+        mensaje && !mensaje.includes("Server Components render")
+          ? mensaje
+          : "No se pudo analizar el archivo. Puede deberse a que el documento es muy pesado o tiene un formato poco común: prueba con un archivo más liviano o en otro formato (Word, CSV) y vuelve a intentar."
+      );
     } finally {
       setAnalizando(false);
     }
