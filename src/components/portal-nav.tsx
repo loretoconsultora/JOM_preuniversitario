@@ -47,6 +47,7 @@ const ALL_ITEMS = [
   { href: "/portal/asistencia", label: "Asistencia", icon: CalendarCheck, roles: ["terapeuta"] },
   { href: "/portal/evaluaciones-habilidades", label: "Evaluaciones", icon: ClipboardCheck, roles: ["terapeuta"] },
   { href: "/portal/orientados", label: "Orientación vocacional", icon: Compass, roles: ["coach_vocacional", "directora"] },
+  { href: "/portal/asistencia-orientacion", label: "Asistencia vocacional", icon: CalendarCheck, roles: ["coach_vocacional", "directora"] },
   { href: "/portal/psicopedagogia", label: "Psicopedagogía", icon: Brain, roles: ["psicopedagogia"] },
   { href: "/portal/seguimiento-psicopedagogia", label: "Psicopedagogía", icon: Brain, roles: ["directora"] },
   { href: "/portal/seguimiento-salud", label: "Seguimiento de salud", icon: HeartPulse, roles: ["directora"] },
