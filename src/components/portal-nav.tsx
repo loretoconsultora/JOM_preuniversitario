@@ -28,7 +28,7 @@ const ALL_ITEMS = [
   { href: "/portal/calificaciones", label: "Calificaciones", icon: GraduationCap, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/recursos", label: "Recursos", icon: FolderOpen, roles: ["alumno", "docente", "directora"] },
   { href: "/portal/foro", label: "Foro", icon: MessagesSquare, roles: ["alumno", "docente", "directora"] },
-  { href: "/portal/asistencia-academica", label: "Asistencia", icon: UserCheck, roles: ["docente", "directora"] },
+  { href: "/portal/asistencia-academica", label: "Asistencia Académica", icon: UserCheck, roles: ["docente", "directora"] },
   {
     href: "/portal/alumnos",
     label: "Alumnos",
