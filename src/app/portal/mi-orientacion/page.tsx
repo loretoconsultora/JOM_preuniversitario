@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Orientado, OrientacionNota, OrientacionPlan, OrientacionRecurso, OrientacionSesion, OrientacionTest } from "@/types/database";
+import type {
+  Orientado,
+  OrientacionNota,
+  OrientacionPlan,
+  OrientacionRecurso,
+  OrientacionSesion,
+  OrientacionTest,
+  OrientacionTestPregunta,
+  OrientacionTestRespuesta,
+} from "@/types/database";
 import { ORIENTACION_RECURSOS_BUCKET, ORIENTACION_TESTS_BUCKET } from "@/lib/storage";
 import { NotasOrientacionSection } from "@/components/notas-orientacion-section";
 import { PlanOrientacionResumen } from "@/components/plan-orientacion-resumen";
@@ -57,6 +66,23 @@ export default async function MiOrientacionPage() {
   const testsList = (tests ?? []) as OrientacionTest[];
   const notasList = (notas ?? []) as OrientacionNota[];
   const recursosList = [...((recursosCaso ?? []) as OrientacionRecurso[]), ...((recursosGenerales ?? []) as OrientacionRecurso[])];
+
+  const testIdsInteractivos = testsList.filter((t) => t.modo === "interactivo").map((t) => t.id);
+  const [{ data: preguntasTests }, { data: respuestasTests }] =
+    testIdsInteractivos.length > 0
+      ? await Promise.all([
+          supabase.from("orientacion_test_preguntas").select("*").in("test_id", testIdsInteractivos).order("orden"),
+          supabase.from("orientacion_test_respuesta").select("*").in("test_id", testIdsInteractivos),
+        ])
+      : [{ data: [] as OrientacionTestPregunta[] }, { data: [] as OrientacionTestRespuesta[] }];
+  const preguntasPorTest: Record<string, OrientacionTestPregunta[]> = {};
+  for (const p of (preguntasTests ?? []) as OrientacionTestPregunta[]) {
+    (preguntasPorTest[p.test_id] ??= []).push(p);
+  }
+  const respuestaPorTest: Record<string, OrientacionTestRespuesta | null> = {};
+  for (const r of (respuestasTests ?? []) as OrientacionTestRespuesta[]) {
+    respuestaPorTest[r.test_id] = r;
+  }
 
   const rutas = [...testsList.map((t) => t.storage_path), ...recursosList.map((r) => r.storage_path)].filter(
     (p): p is string => Boolean(p)
@@ -132,7 +158,15 @@ export default async function MiOrientacionPage() {
       </div>
 
       <div className="glass rounded-2xl p-5">
-        <TestsOrientacionSection orientadoId={id} tests={testsList} urlPorArchivo={urlPorPath} soloLectura />
+        <TestsOrientacionSection
+          orientadoId={id}
+          tests={testsList}
+          urlPorArchivo={urlPorPath}
+          preguntasPorTest={preguntasPorTest}
+          respuestaPorTest={respuestaPorTest}
+          soloLectura
+          puedeResponder
+        />
       </div>
 
       <div className="glass rounded-2xl p-5">

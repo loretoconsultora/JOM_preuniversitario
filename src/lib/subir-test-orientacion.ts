@@ -8,7 +8,14 @@ function sanitizeFilename(name: string) {
 
 export async function subirTestOrientacion(
   orientadoId: string,
-  datos: { nombre_test: string; resultado: string; fecha: string },
+  datos: {
+    nombre_test: string;
+    resultado: string;
+    fecha: string;
+    modo: "archivo" | "link" | "interactivo";
+    url: string | null;
+    preguntas: { enunciado: string; opciones: string[] }[];
+  },
   archivo: File | null
 ) {
   let archivoMeta: { storage_path: string; nombre_archivo: string; tipo_mime: string | null; tamano_bytes: number } | null = null;

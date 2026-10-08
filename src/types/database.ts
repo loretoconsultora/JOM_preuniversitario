@@ -301,12 +301,31 @@ export type OrientacionTest = {
   orientado_id: string;
   nombre_test: string;
   resultado: string | null;
+  modo: "archivo" | "link" | "interactivo";
+  url: string | null;
   storage_path: string | null;
   nombre_archivo: string | null;
   tipo_mime: string | null;
   tamano_bytes: number | null;
   fecha: string;
   creado_por: string;
+  created_at: string;
+};
+
+export type OrientacionTestPregunta = {
+  id: string;
+  test_id: string;
+  orden: number;
+  enunciado: string;
+  opciones: string[];
+  created_at: string;
+};
+
+export type OrientacionTestRespuesta = {
+  id: string;
+  test_id: string;
+  alumno_id: string;
+  respuestas: number[];
   created_at: string;
 };
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireCoachVocacional } from "@/lib/auth";
+import { requireCoachVocacional, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ORIENTACION_RECURSOS_BUCKET, ORIENTACION_TESTS_BUCKET } from "@/lib/storage";
 import { actionError, actionOk, ERROR_INESPERADO, type ActionResult } from "@/lib/action-result";
@@ -277,33 +277,114 @@ export async function registrarTestOrientacion(
     nombre_test: string;
     resultado: string;
     fecha: string;
+    modo: "archivo" | "link" | "interactivo";
+    url: string | null;
     archivo: { storage_path: string; nombre_archivo: string; tipo_mime: string | null; tamano_bytes: number } | null;
+    preguntas: { enunciado: string; opciones: string[] }[];
   }
 ): Promise<ActionResult> {
   const profile = await requireCoachVocacional();
   const nombre_test = datos.nombre_test.trim();
   if (!nombre_test) return actionError("Indica el nombre del test.");
+  if (datos.modo === "archivo" && !datos.archivo) return actionError("Selecciona un archivo.");
+  if (datos.modo === "link" && !datos.url?.trim()) return actionError("Pega el link del test.");
+
+  const preguntasValidas =
+    datos.modo === "interactivo"
+      ? datos.preguntas
+          .map((p) => ({ enunciado: p.enunciado.trim(), opciones: p.opciones.map((o) => o.trim()).filter(Boolean) }))
+          .filter((p) => p.enunciado && p.opciones.length >= 2)
+      : [];
+  if (datos.modo === "interactivo" && preguntasValidas.length === 0) {
+    return actionError("Agrega al menos una pregunta con dos opciones.");
+  }
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("orientacion_tests").insert({
-      orientado_id: orientadoId,
-      nombre_test,
-      resultado: datos.resultado.trim() || null,
-      fecha: datos.fecha || new Date().toISOString().slice(0, 10),
-      storage_path: datos.archivo?.storage_path ?? null,
-      nombre_archivo: datos.archivo?.nombre_archivo ?? null,
-      tipo_mime: datos.archivo?.tipo_mime ?? null,
-      tamano_bytes: datos.archivo?.tamano_bytes ?? null,
-      creado_por: profile.id,
-    });
+    let urlNormalizada = datos.url?.trim() || null;
+    if (urlNormalizada && !/^https?:\/\//i.test(urlNormalizada)) urlNormalizada = `https://${urlNormalizada}`;
+
+    const { data: test, error } = await supabase
+      .from("orientacion_tests")
+      .insert({
+        orientado_id: orientadoId,
+        nombre_test,
+        modo: datos.modo,
+        resultado: datos.modo === "interactivo" ? null : datos.resultado.trim() || null,
+        fecha: datos.fecha || new Date().toISOString().slice(0, 10),
+        url: datos.modo === "link" ? urlNormalizada : null,
+        storage_path: datos.modo === "archivo" ? datos.archivo!.storage_path : null,
+        nombre_archivo: datos.modo === "archivo" ? datos.archivo!.nombre_archivo : null,
+        tipo_mime: datos.modo === "archivo" ? datos.archivo!.tipo_mime : null,
+        tamano_bytes: datos.modo === "archivo" ? datos.archivo!.tamano_bytes : null,
+        creado_por: profile.id,
+      })
+      .select("id")
+      .single();
     if (error) return actionError(error.message);
+
+    if (datos.modo === "interactivo") {
+      const { error: preguntasError } = await supabase.from("orientacion_test_preguntas").insert(
+        preguntasValidas.map((p, i) => ({
+          test_id: test.id as string,
+          orden: i,
+          enunciado: p.enunciado,
+          opciones: p.opciones,
+        }))
+      );
+      if (preguntasError) return actionError(preguntasError.message);
+    }
 
     revalidatePath(`/portal/orientados/${orientadoId}`);
     revalidatePath("/portal/mi-orientacion");
     return actionOk({});
   } catch (e) {
     console.error("registrarTestOrientacion:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
+export async function responderTestOrientacion(testId: string, respuestas: number[]): Promise<ActionResult> {
+  const profile = await requireProfile();
+  if (profile.role !== "alumno") return actionError("Solo el alumno puede responder este test.");
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("orientacion_test_respuesta")
+      .insert({ test_id: testId, alumno_id: profile.id, respuestas });
+    if (error) {
+      if (error.code === "23505") return actionError("Ya respondiste este test.");
+      return actionError(error.message);
+    }
+
+    revalidatePath("/portal/mi-orientacion");
+    return actionOk({});
+  } catch (e) {
+    console.error("responderTestOrientacion:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
+export async function evaluarTestOrientacion(
+  testId: string,
+  orientadoId: string,
+  resultado: string
+): Promise<ActionResult> {
+  await requireCoachVocacional();
+  const texto = resultado.trim();
+  if (!texto) return actionError("Escribe la interpretación del resultado.");
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("orientacion_tests").update({ resultado: texto }).eq("id", testId);
+    if (error) return actionError(error.message);
+
+    revalidatePath(`/portal/orientados/${orientadoId}`);
+    revalidatePath("/portal/mi-orientacion");
+    return actionOk({});
+  } catch (e) {
+    console.error("evaluarTestOrientacion:", e);
     return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
 }
