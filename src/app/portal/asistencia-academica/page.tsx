@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Trash2, Users } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -24,10 +25,10 @@ function formatFecha(fecha: string) {
 export default async function AsistenciaAcademicaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ materia?: string }>;
+  searchParams: Promise<{ materia?: string; alumno?: string }>;
 }) {
   const profile = await requireStaff();
-  const { materia: materiaParam } = await searchParams;
+  const { materia: materiaParam, alumno: alumnoParam } = await searchParams;
   const supabase = await createClient();
   const isDocente = profile.role === "docente";
 
@@ -222,6 +223,49 @@ export default async function AsistenciaAcademicaPage({
     resumenPorAlumno.set(a.alumno_id, r);
   }
 
+  const alumnoId = alumnoParam && alumnosList.some((a) => a.id === alumnoParam) ? alumnoParam : "";
+  const alumnoSeleccionado = alumnoId ? alumnosList.find((a) => a.id === alumnoId) : null;
+  const hrefAlumno = (id: string) => `/portal/asistencia-academica?${materiaId ? `materia=${materiaId}&` : ""}alumno=${id}`;
+
+  type NotaConContexto = { fecha: string; materiaNombre: string; docenteNombre: string; nota: string };
+  let notasAlumno: NotaConContexto[] = [];
+  if (alumnoId) {
+    const { data: notas } = await supabase.from("clase_notas_alumno").select("*").eq("alumno_id", alumnoId);
+    const notasList = (notas ?? []) as ClaseNotaAlumno[];
+    if (notasList.length > 0) {
+      const sesionIdsConNota = notasList.map((n) => n.sesion_id);
+      const { data: sesionesConNota } = await supabase.from("clase_sesiones").select("*").in("id", sesionIdsConNota);
+      const sesionesConNotaList = (sesionesConNota ?? []) as ClaseSesion[];
+      const sesionPorId = new Map(sesionesConNotaList.map((s) => [s.id, s]));
+
+      const materiaIdsConNota = [...new Set(sesionesConNotaList.map((s) => s.materia_id))];
+      const docenteIdsConNota = [...new Set(notasList.map((n) => n.creado_por))];
+      const [{ data: materiasConNota }, { data: docentesConNota }] = await Promise.all([
+        materiaIdsConNota.length > 0
+          ? supabase.from("materias").select("*").in("id", materiaIdsConNota)
+          : Promise.resolve({ data: [] as Materia[] }),
+        docenteIdsConNota.length > 0
+          ? supabase.from("profiles").select("*").in("id", docenteIdsConNota)
+          : Promise.resolve({ data: [] as Profile[] }),
+      ]);
+      const materiaNombrePorId = new Map(((materiasConNota ?? []) as Materia[]).map((m) => [m.id, m.nombre]));
+      const docenteNombrePorId = new Map(((docentesConNota ?? []) as Profile[]).map((d) => [d.id, d.nombre_completo]));
+
+      notasAlumno = notasList
+        .filter((n) => !materiaId || sesionPorId.get(n.sesion_id)?.materia_id === materiaId)
+        .map((n) => {
+          const sesion = sesionPorId.get(n.sesion_id);
+          return {
+            fecha: sesion?.fecha ?? "",
+            materiaNombre: sesion ? (materiaNombrePorId.get(sesion.materia_id) ?? "Materia") : "Materia",
+            docenteNombre: docenteNombrePorId.get(n.creado_por) ?? "Docente",
+            nota: n.nota,
+          };
+        })
+        .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -261,7 +305,11 @@ export default async function AsistenciaAcademicaPage({
                 const pct = r && r.total > 0 ? Math.round((r.presentes / r.total) * 100) : null;
                 return (
                   <tr key={a.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
-                    <td className="px-5 py-3 font-medium">{a.nombre_completo}</td>
+                    <td className="px-5 py-3 font-medium">
+                      <Link href={hrefAlumno(a.id)} className={`hover:underline ${a.id === alumnoId ? "text-jom-pink" : ""}`}>
+                        {a.nombre_completo}
+                      </Link>
+                    </td>
                     <td className="px-5 py-3">{r?.total ?? 0}</td>
                     <td className="px-5 py-3">{r?.presentes ?? 0}</td>
                     <td className="px-5 py-3 font-semibold">{pct !== null ? `${pct}%` : "—"}</td>
@@ -270,6 +318,31 @@ export default async function AsistenciaAcademicaPage({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {alumnoSeleccionado && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-semibold">
+            Notas de clase de {alumnoSeleccionado.nombre_completo}
+            {materiaSeleccionada && ` · ${materiaSeleccionada.nombre}`}
+          </p>
+          {notasAlumno.length === 0 ? (
+            <p className="text-muted text-sm">No hay notas registradas para este alumno{materiaSeleccionada ? " en esta materia" : ""}.</p>
+          ) : (
+            <div className="glass flex flex-col gap-3 rounded-2xl p-5">
+              {notasAlumno.map((n, i) => (
+                <div key={i} className="flex flex-col gap-1 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-medium capitalize">{formatFecha(n.fecha)}</span>
+                    <span className="rounded-full bg-jom-yellow/40 px-2 py-0.5 text-xs font-medium text-jom-ink">{n.materiaNombre}</span>
+                    <span className="text-muted text-xs">· {n.docenteNombre}</span>
+                  </div>
+                  <p className="text-sm">{n.nota}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
