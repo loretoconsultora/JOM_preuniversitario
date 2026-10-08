@@ -361,7 +361,13 @@ export function TestsOrientacionSection({
           <input value={nombreTest} onChange={(e) => setNombreTest(e.target.value)} placeholder="Nombre del test (ej. Kuder, CHASIDE)" className={inputClass} />
 
           {modo !== "interactivo" && (
-            <textarea value={resultado} onChange={(e) => setResultado(e.target.value)} rows={3} placeholder="Resumen del resultado (opcional)" className={inputClass} />
+            <textarea
+              value={resultado}
+              onChange={(e) => setResultado(e.target.value)}
+              rows={3}
+              placeholder={modo === "archivo" ? "Instrucciones de la evaluación (opcional)" : "Resumen del resultado (opcional)"}
+              className={inputClass}
+            />
           )}
 
           <div className="flex flex-wrap items-center gap-2">
