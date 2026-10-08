@@ -30,6 +30,31 @@ export async function crearCasoPsicopedagogia(formData: FormData): Promise<Actio
   }
 }
 
+export async function editarCasoPsicopedagogia(id: string, formData: FormData): Promise<ActionResult> {
+  await requirePsicopedagogia();
+
+  const nombre = String(formData.get("nombre") || "").trim();
+  if (!nombre) return actionError("El nombre es obligatorio.");
+  const motivo = String(formData.get("motivo") || "").trim();
+  const alumno_id = String(formData.get("alumno_id") || "").trim() || null;
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("psicopedagogia_casos")
+      .update({ alumno_id, nombre, motivo: motivo || null })
+      .eq("id", id);
+    if (error) return actionError(error.message);
+
+    revalidatePath("/portal/psicopedagogia");
+    revalidatePath(`/portal/psicopedagogia/${id}`);
+    return actionOk({});
+  } catch (e) {
+    console.error("editarCasoPsicopedagogia:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
 export async function archivarCasoPsicopedagogia(id: string, activo: boolean): Promise<ActionResult> {
   await requirePsicopedagogia();
   try {

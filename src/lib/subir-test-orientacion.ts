@@ -11,6 +11,7 @@ export async function subirTestOrientacion(
   datos: {
     nombre_test: string;
     resultado: string;
+    instrucciones: string;
     fecha: string;
     modo: "archivo" | "link" | "interactivo";
     url: string | null;

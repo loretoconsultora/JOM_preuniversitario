@@ -40,6 +40,28 @@ export async function crearPaciente(formData: FormData): Promise<ActionResult<{ 
   }
 }
 
+export async function editarPaciente(id: string, formData: FormData): Promise<ActionResult> {
+  await requireTerapeuta();
+
+  const nombre = String(formData.get("nombre") || "").trim();
+  if (!nombre) return actionError("El nombre es obligatorio.");
+  const motivos = formData.getAll("motivos").map((m) => String(m).trim()).filter(Boolean);
+  const alumno_id = String(formData.get("alumno_id") || "").trim() || null;
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("pacientes").update({ alumno_id, nombre, motivos }).eq("id", id);
+    if (error) return actionError(error.message);
+
+    revalidatePath("/portal/pacientes");
+    revalidatePath(`/portal/pacientes/${id}`);
+    return actionOk({});
+  } catch (e) {
+    console.error("editarPaciente:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
 export async function agregarNotaPaciente(pacienteId: string, contenido: string): Promise<ActionResult> {
   const profile = await requireTerapeuta();
   if (!contenido) return actionError("Escribe una nota.");

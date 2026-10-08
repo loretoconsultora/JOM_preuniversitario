@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Sparkles, Trash2, User } from "lucide-react";
+import { ArrowLeft, Pencil, Sparkles, Trash2, User } from "lucide-react";
 import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Paciente, PacienteDocumento, PacienteNota, PacienteSalud, PacienteSesion, Profile } from "@/types/database";
@@ -112,6 +112,12 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <Link
+            href={`/portal/pacientes/${id}/editar`}
+            className="text-muted inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <Pencil size={13} /> Editar
+          </Link>
           <ArchivarPacienteButton id={id} activo={pacienteData.activo} />
           {!pacienteData.activo && (
             <ConfirmDeleteButton

@@ -2,15 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MotivosPicker } from "@/components/motivos-picker";
-import { FechaAltaInput } from "@/components/fecha-alta-input";
-import { crearPaciente } from "@/app/portal/pacientes/actions";
-import type { Profile } from "@/types/database";
+import { editarCasoPsicopedagogia } from "@/app/portal/psicopedagogia/actions";
+import type { PsicopedagogiaCaso, Profile } from "@/types/database";
 
-export function CrearPacienteForm({ alumnos }: { alumnos: Profile[] }) {
+export function EditarCasoPsicopedagogiaForm({ caso, alumnos }: { caso: PsicopedagogiaCaso; alumnos: Profile[] }) {
   const router = useRouter();
-  const [alumnoId, setAlumnoId] = useState("");
-  const [nombre, setNombre] = useState("");
+  const [alumnoId, setAlumnoId] = useState(caso.alumno_id ?? "");
+  const [nombre, setNombre] = useState(caso.nombre);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,8 +17,9 @@ export function CrearPacienteForm({ alumnos }: { alumnos: Profile[] }) {
 
   function onAlumnoChange(id: string) {
     setAlumnoId(id);
+    if (!id) return;
     const alumno = alumnos.find((a) => a.id === id);
-    setNombre(alumno ? alumno.nombre_completo : "");
+    if (alumno) setNombre(alumno.nombre_completo);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -28,14 +27,15 @@ export function CrearPacienteForm({ alumnos }: { alumnos: Profile[] }) {
     setError(null);
     setGuardando(true);
     try {
-      const resultado = await crearPaciente(new FormData(e.currentTarget));
+      const resultado = await editarCasoPsicopedagogia(caso.id, new FormData(e.currentTarget));
       if (!resultado.ok) {
         setError(resultado.error);
         return;
       }
-      router.push(`/portal/pacientes/${resultado.id}`);
+      router.push(`/portal/psicopedagogia/${caso.id}`);
+      router.refresh();
     } catch {
-      setError("No se pudo crear el paciente. Revisa tu conexión e intenta de nuevo.");
+      setError("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setGuardando(false);
     }
@@ -54,7 +54,7 @@ export function CrearPacienteForm({ alumnos }: { alumnos: Profile[] }) {
               </option>
             ))}
           </select>
-          <span className="text-muted text-xs">Si lo vinculas, el nombre del paciente se toma del alumno.</span>
+          <span className="text-muted text-xs">Si lo vinculas, el nombre del caso se toma del alumno.</span>
         </label>
       )}
 
@@ -72,20 +72,16 @@ export function CrearPacienteForm({ alumnos }: { alumnos: Profile[] }) {
         {alumnoId && <span className="text-muted text-xs">Se toma del alumno vinculado.</span>}
       </label>
 
-      <div className="flex flex-col gap-1.5 text-sm">
-        Motivos de referencia
-        <MotivosPicker name="motivos" />
-      </div>
-
-      <div className="flex flex-col gap-1.5 text-sm">
-        ¿Desde cuándo es paciente?
-        <FechaAltaInput name="fecha_alta" className={inputClass} />
-        <span className="text-muted text-xs">
-          El botón &quot;Nuevo paciente&quot; deja el mes actual (se marcará como &quot;Nuevo paciente&quot; en el
-          listado). También puedes elegir un mes anterior para pacientes que ya llevaban terapia antes de usar esta
-          plataforma. A partir de aquí se cuenta el ciclo de evaluaciones mensuales.
-        </span>
-      </div>
+      <label className="flex flex-col gap-1.5 text-sm">
+        Motivo (opcional)
+        <textarea
+          name="motivo"
+          rows={3}
+          defaultValue={caso.motivo ?? ""}
+          placeholder="Ej. Dificultad para organizar tareas y estudiar"
+          className={inputClass}
+        />
+      </label>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
@@ -94,7 +90,7 @@ export function CrearPacienteForm({ alumnos }: { alumnos: Profile[] }) {
         disabled={guardando}
         className="mt-2 rounded-full bg-jom-ink px-6 py-3 text-sm font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
       >
-        {guardando ? "Creando…" : "Crear paciente"}
+        {guardando ? "Guardando…" : "Guardar cambios"}
       </button>
     </form>
   );

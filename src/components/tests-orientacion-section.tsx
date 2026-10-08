@@ -258,6 +258,7 @@ export function TestsOrientacionSection({
   const [modo, setModo] = useState<"archivo" | "link" | "interactivo">("archivo");
   const [nombreTest, setNombreTest] = useState("");
   const [resultado, setResultado] = useState("");
+  const [instrucciones, setInstrucciones] = useState("");
   const [url, setUrl] = useState("");
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -272,6 +273,7 @@ export function TestsOrientacionSection({
   function resetForm() {
     setNombreTest("");
     setResultado("");
+    setInstrucciones("");
     setUrl("");
     setArchivo(null);
     setPreguntas([]);
@@ -299,7 +301,11 @@ export function TestsOrientacionSection({
     }
     setGuardando(true);
     try {
-      await subirTestOrientacion(orientadoId, { nombre_test: nombreTest, resultado, fecha, modo, url: modo === "link" ? url : null, preguntas }, archivo);
+      await subirTestOrientacion(
+        orientadoId,
+        { nombre_test: nombreTest, resultado, instrucciones, fecha, modo, url: modo === "link" ? url : null, preguntas },
+        archivo
+      );
       resetForm();
       router.refresh();
     } catch (e) {
@@ -365,7 +371,17 @@ export function TestsOrientacionSection({
               value={resultado}
               onChange={(e) => setResultado(e.target.value)}
               rows={3}
-              placeholder={modo === "archivo" ? "Instrucciones de la evaluación (opcional)" : "Resumen del resultado (opcional)"}
+              placeholder="Instrucciones de la evaluación (opcional)"
+              className={inputClass}
+            />
+          )}
+
+          {modo === "interactivo" && (
+            <textarea
+              value={instrucciones}
+              onChange={(e) => setInstrucciones(e.target.value)}
+              rows={2}
+              placeholder="Instrucciones generales (opcional, ej. 'elige la opción que más te identifique')"
               className={inputClass}
             />
           )}
@@ -463,6 +479,7 @@ export function TestsOrientacionSection({
                 </div>
 
                 {t.resultado && <p className="text-sm">{t.resultado}</p>}
+                {t.modo === "interactivo" && t.instrucciones && <p className="text-muted text-sm">{t.instrucciones}</p>}
 
                 {t.modo === "archivo" && t.storage_path && (
                   <a

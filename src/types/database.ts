@@ -301,6 +301,7 @@ export type OrientacionTest = {
   orientado_id: string;
   nombre_test: string;
   resultado: string | null;
+  instrucciones: string | null;
   modo: "archivo" | "link" | "interactivo";
   url: string | null;
   storage_path: string | null;

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Trash2, User } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, User } from "lucide-react";
 import { requireCoachVocacionalODirectora } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -134,6 +134,12 @@ export default async function OrientadoDetallePage({ params }: { params: Promise
         </div>
         {esCoach && (
           <div className="flex shrink-0 items-center gap-1">
+            <Link
+              href={`/portal/orientados/${id}/editar`}
+              className="text-muted inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <Pencil size={13} /> Editar
+            </Link>
             <ArchivarOrientadoButton id={id} activo={orientadoData.activo} />
             {!orientadoData.activo && (
               <ConfirmDeleteButton

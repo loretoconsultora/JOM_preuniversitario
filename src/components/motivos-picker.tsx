@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { MOTIVOS_PRECARGADOS, colorMotivo } from "@/lib/motivo-tags";
 
-export function MotivosPicker({ name }: { name: string }) {
-  const [seleccionados, setSeleccionados] = useState<string[]>([]);
+export function MotivosPicker({ name, initial = [] }: { name: string; initial?: string[] }) {
+  const [seleccionados, setSeleccionados] = useState<string[]>(initial);
   const [otro, setOtro] = useState("");
 
   function toggle(m: string) {

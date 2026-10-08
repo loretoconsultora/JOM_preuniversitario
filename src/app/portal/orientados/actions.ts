@@ -32,6 +32,31 @@ export async function crearOrientado(formData: FormData): Promise<ActionResult<{
   }
 }
 
+export async function editarOrientado(id: string, formData: FormData): Promise<ActionResult> {
+  await requireCoachVocacional();
+
+  const nombre = String(formData.get("nombre") || "").trim();
+  if (!nombre) return actionError("El nombre es obligatorio.");
+  const objetivo = String(formData.get("objetivo") || "").trim();
+  const alumno_id = String(formData.get("alumno_id") || "").trim() || null;
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("orientados")
+      .update({ alumno_id, nombre, objetivo: objetivo || null })
+      .eq("id", id);
+    if (error) return actionError(error.message);
+
+    revalidatePath("/portal/orientados");
+    revalidatePath(`/portal/orientados/${id}`);
+    return actionOk({});
+  } catch (e) {
+    console.error("editarOrientado:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
 export async function archivarOrientado(id: string, activo: boolean): Promise<ActionResult> {
   await requireCoachVocacional();
   try {
@@ -276,6 +301,7 @@ export async function registrarTestOrientacion(
   datos: {
     nombre_test: string;
     resultado: string;
+    instrucciones: string;
     fecha: string;
     modo: "archivo" | "link" | "interactivo";
     url: string | null;
@@ -311,6 +337,7 @@ export async function registrarTestOrientacion(
         nombre_test,
         modo: datos.modo,
         resultado: datos.modo === "interactivo" ? null : datos.resultado.trim() || null,
+        instrucciones: datos.modo === "interactivo" ? datos.instrucciones.trim() || null : null,
         fecha: datos.fecha || new Date().toISOString().slice(0, 10),
         url: datos.modo === "link" ? urlNormalizada : null,
         storage_path: datos.modo === "archivo" ? datos.archivo!.storage_path : null,
