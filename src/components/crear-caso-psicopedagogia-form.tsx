@@ -7,11 +7,19 @@ import type { Profile } from "@/types/database";
 
 export function CrearCasoPsicopedagogiaForm({ alumnos }: { alumnos: Profile[] }) {
   const router = useRouter();
+  const [alumnoId, setAlumnoId] = useState("");
+  const [nombre, setNombre] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const inputClass =
     "glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
+
+  function onAlumnoChange(id: string) {
+    setAlumnoId(id);
+    const alumno = alumnos.find((a) => a.id === id);
+    setNombre(alumno ? alumno.nombre_completo : "");
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -33,15 +41,10 @@ export function CrearCasoPsicopedagogiaForm({ alumnos }: { alumnos: Profile[] })
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1.5 text-sm">
-        Nombre
-        <input name="nombre" required placeholder="Nombre completo" className={inputClass} />
-      </label>
-
       {alumnos.length > 0 && (
         <label className="flex flex-col gap-1.5 text-sm">
           Vincular a alumno existente (opcional)
-          <select name="alumno_id" className={inputClass}>
+          <select name="alumno_id" value={alumnoId} onChange={(e) => onAlumnoChange(e.target.value)} className={inputClass}>
             <option value="">No vincular</option>
             {alumnos.map((a) => (
               <option key={a.id} value={a.id}>
@@ -49,8 +52,23 @@ export function CrearCasoPsicopedagogiaForm({ alumnos }: { alumnos: Profile[] })
               </option>
             ))}
           </select>
+          <span className="text-muted text-xs">Si lo vinculas, el nombre del caso se toma del alumno.</span>
         </label>
       )}
+
+      <label className="flex flex-col gap-1.5 text-sm">
+        Nombre
+        <input
+          name="nombre"
+          required
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          readOnly={!!alumnoId}
+          placeholder="Nombre completo"
+          className={`${inputClass} ${alumnoId ? "opacity-70" : ""}`}
+        />
+        {alumnoId && <span className="text-muted text-xs">Se toma del alumno vinculado.</span>}
+      </label>
 
       <label className="flex flex-col gap-1.5 text-sm">
         Motivo (opcional)
