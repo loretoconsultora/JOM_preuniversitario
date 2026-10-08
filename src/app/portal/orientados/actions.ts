@@ -5,6 +5,7 @@ import { requireCoachVocacional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ORIENTACION_RECURSOS_BUCKET, ORIENTACION_TESTS_BUCKET } from "@/lib/storage";
 import { actionError, actionOk, ERROR_INESPERADO, type ActionResult } from "@/lib/action-result";
+import type { PasoOrientacion } from "@/types/database";
 
 export async function crearOrientado(formData: FormData): Promise<ActionResult<{ id: string }>> {
   const profile = await requireCoachVocacional();
@@ -208,9 +209,9 @@ export async function guardarPlanOrientacion(
   orientadoId: string,
   datos: {
     metas: string;
-    carreras_interes: string;
-    universidades_interes: string;
-    proximos_pasos: string;
+    carreras_interes: string[];
+    universidades_interes: string[];
+    proximos_pasos: PasoOrientacion[];
   }
 ): Promise<ActionResult> {
   const profile = await requireCoachVocacional();
@@ -219,9 +220,9 @@ export async function guardarPlanOrientacion(
     const { error } = await supabase.from("orientacion_plan").upsert({
       orientado_id: orientadoId,
       metas: datos.metas.trim() || null,
-      carreras_interes: datos.carreras_interes.trim() || null,
-      universidades_interes: datos.universidades_interes.trim() || null,
-      proximos_pasos: datos.proximos_pasos.trim() || null,
+      carreras_interes: datos.carreras_interes,
+      universidades_interes: datos.universidades_interes,
+      proximos_pasos: datos.proximos_pasos,
       actualizado_por: profile.id,
       updated_at: new Date().toISOString(),
     });

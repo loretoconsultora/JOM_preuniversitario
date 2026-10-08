@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Orientado, OrientacionNota, OrientacionPlan, OrientacionRecurso, OrientacionSesion, OrientacionTest } from "@/types/database";
 import { ORIENTACION_RECURSOS_BUCKET, ORIENTACION_TESTS_BUCKET } from "@/lib/storage";
 import { NotasOrientacionSection } from "@/components/notas-orientacion-section";
+import { PlanOrientacionResumen } from "@/components/plan-orientacion-resumen";
 import { TestsOrientacionSection } from "@/components/tests-orientacion-section";
 import { RecursosOrientacionSection } from "@/components/recursos-orientacion-section";
 import { ESTADO_LABEL, ESTADO_CLASS } from "@/lib/estado-sesion";
@@ -85,12 +86,7 @@ export default async function MiOrientacionPage() {
       <div className="glass flex flex-col gap-3 rounded-2xl p-5">
         <p className="text-sm font-semibold">Mi plan</p>
         {planData ? (
-          <div className="flex flex-col gap-2 text-sm">
-            {planData.metas && <p><span className="text-muted">Metas:</span> {planData.metas}</p>}
-            {planData.carreras_interes && <p><span className="text-muted">Carreras de interés:</span> {planData.carreras_interes}</p>}
-            {planData.universidades_interes && <p><span className="text-muted">Universidades de interés:</span> {planData.universidades_interes}</p>}
-            {planData.proximos_pasos && <p><span className="text-muted">Próximos pasos:</span> {planData.proximos_pasos}</p>}
-          </div>
+          <PlanOrientacionResumen plan={planData} />
         ) : (
           <p className="text-muted text-sm">Tu coach todavía no registró un plan.</p>
         )}

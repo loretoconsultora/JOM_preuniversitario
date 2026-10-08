@@ -310,12 +310,19 @@ export type OrientacionTest = {
   created_at: string;
 };
 
+export type PasoOrientacion = {
+  id: string;
+  texto: string;
+  fecha: string | null;
+  completado: boolean;
+};
+
 export type OrientacionPlan = {
   orientado_id: string;
   metas: string | null;
-  carreras_interes: string | null;
-  universidades_interes: string | null;
-  proximos_pasos: string | null;
+  carreras_interes: string[];
+  universidades_interes: string[];
+  proximos_pasos: PasoOrientacion[];
   actualizado_por: string | null;
   updated_at: string;
 };

@@ -8,6 +8,7 @@ import { ORIENTACION_RECURSOS_BUCKET, ORIENTACION_TESTS_BUCKET } from "@/lib/sto
 import { NuevoAgendamientoOrientacionForm } from "@/components/nuevo-agendamiento-orientacion-form";
 import { OrientadoQuickActions } from "@/components/orientado-quick-actions";
 import { PlanOrientacionForm } from "@/components/plan-orientacion-form";
+import { PlanOrientacionResumen } from "@/components/plan-orientacion-resumen";
 import { NotasOrientacionSection } from "@/components/notas-orientacion-section";
 import { TestsOrientacionSection } from "@/components/tests-orientacion-section";
 import { RecursosOrientacionSection } from "@/components/recursos-orientacion-section";
@@ -142,12 +143,7 @@ export default async function OrientadoDetallePage({ params }: { params: Promise
         {esCoach ? (
           <PlanOrientacionForm orientadoId={id} plan={planData} />
         ) : planData ? (
-          <div className="flex flex-col gap-2 text-sm">
-            {planData.metas && <p><span className="text-muted">Metas:</span> {planData.metas}</p>}
-            {planData.carreras_interes && <p><span className="text-muted">Carreras de interés:</span> {planData.carreras_interes}</p>}
-            {planData.universidades_interes && <p><span className="text-muted">Universidades de interés:</span> {planData.universidades_interes}</p>}
-            {planData.proximos_pasos && <p><span className="text-muted">Próximos pasos:</span> {planData.proximos_pasos}</p>}
-          </div>
+          <PlanOrientacionResumen plan={planData} />
         ) : (
           <p className="text-muted text-sm">Todavía no hay un plan registrado.</p>
         )}
