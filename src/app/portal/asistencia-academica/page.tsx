@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { materiasGestionables } from "@/lib/materias-gestionables";
 import { alumnosInscritos } from "@/lib/materias-inscritas";
-import type { ClaseAsistencia, ClaseSesion, Profile, Tema } from "@/types/database";
+import type { ClaseAsistencia, ClaseSesion, Materia, Profile, Tema } from "@/types/database";
 import { TomarAsistenciaForm } from "@/components/tomar-asistencia-form";
 import { InscribirAlumnosSection } from "@/components/inscribir-alumnos-section";
 import { MateriaSelector } from "@/components/materia-selector";
@@ -166,13 +166,27 @@ export default async function AsistenciaAcademicaPage({
     );
   }
 
-  // Directora: reporte agregado de cumplimiento por alumno.
-  const [{ data: alumnos }, { data: asistencias }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("role", "alumno").order("nombre_completo"),
-    supabase.from("clase_asistencias").select("*"),
-  ]);
+  // Directora: reporte de cumplimiento por alumno, con filtro opcional por materia.
+  const { data: materiasAll } = await supabase.from("materias").select("*").order("nombre");
+  const materiasList = (materiasAll ?? []) as Materia[];
+  const materiaId = materiaParam && materiasList.some((m) => m.id === materiaParam) ? materiaParam : "";
+  const materiaSeleccionada = materiaId ? materiasList.find((m) => m.id === materiaId) : null;
+
+  const { data: alumnos } = await supabase.from("profiles").select("*").eq("role", "alumno").order("nombre_completo");
   const alumnosList = (alumnos ?? []) as Profile[];
-  const asistenciasList = (asistencias ?? []) as ClaseAsistencia[];
+
+  let asistenciasList: ClaseAsistencia[] = [];
+  if (materiaId) {
+    const { data: sesionesMateria } = await supabase.from("clase_sesiones").select("id").eq("materia_id", materiaId);
+    const sesionIds = (sesionesMateria ?? []).map((s) => s.id);
+    if (sesionIds.length > 0) {
+      const { data: asistencias } = await supabase.from("clase_asistencias").select("*").in("sesion_id", sesionIds);
+      asistenciasList = (asistencias ?? []) as ClaseAsistencia[];
+    }
+  } else {
+    const { data: asistencias } = await supabase.from("clase_asistencias").select("*");
+    asistenciasList = (asistencias ?? []) as ClaseAsistencia[];
+  }
 
   const resumenPorAlumno = new Map<string, { presentes: number; total: number }>();
   for (const a of asistenciasList) {
@@ -186,8 +200,21 @@ export default async function AsistenciaAcademicaPage({
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">Asistencia</h1>
-        <p className="text-muted text-sm">Cumplimiento de asistencia a clases por alumno, registrado por los docentes</p>
+        <p className="text-muted text-sm">
+          {materiaSeleccionada
+            ? `Cumplimiento de asistencia en ${materiaSeleccionada.nombre}, registrado por el docente`
+            : "Cumplimiento de asistencia a clases por alumno, sumando todas las materias"}
+        </p>
       </div>
+
+      {materiasList.length > 0 && (
+        <MateriaSelector
+          materias={materiasList.map((m) => ({ id: m.id, nombre: m.nombre }))}
+          seleccionada={materiaId}
+          basePath="/portal/asistencia-academica"
+          placeholder="Todas las materias"
+        />
+      )}
 
       {alumnosList.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center text-sm text-muted">Aún no hay alumnos registrados.</div>
