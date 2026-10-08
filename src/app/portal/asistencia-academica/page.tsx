@@ -4,11 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { materiasGestionables } from "@/lib/materias-gestionables";
 import { alumnosInscritos } from "@/lib/materias-inscritas";
-import type { ClaseAsistencia, ClaseSesion, Materia, Profile, Tema } from "@/types/database";
+import type { ClaseAsistencia, ClaseNotaAlumno, ClaseSesion, Materia, Profile, Tema } from "@/types/database";
 import { TomarAsistenciaForm } from "@/components/tomar-asistencia-form";
 import { InscribirAlumnosSection } from "@/components/inscribir-alumnos-section";
 import { MateriaSelector } from "@/components/materia-selector";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { NotasAlumnosClaseSection } from "@/components/notas-alumnos-clase-section";
 import { eliminarSesionAsistencia } from "./actions";
 
 function formatFecha(fecha: string) {
@@ -73,17 +74,27 @@ export default async function AsistenciaAcademicaPage({
       // Si falla la consulta de correos, se sigue mostrando solo el nombre.
     }
     const sesionIds = sesionesList.map((s) => s.id);
-    const { data: asistencias } =
+    const [{ data: asistencias }, { data: notasAlumno }] =
       sesionIds.length > 0
-        ? await supabase.from("clase_asistencias").select("*").in("sesion_id", sesionIds)
-        : { data: [] as ClaseAsistencia[] };
+        ? await Promise.all([
+            supabase.from("clase_asistencias").select("*").in("sesion_id", sesionIds),
+            supabase.from("clase_notas_alumno").select("*").in("sesion_id", sesionIds),
+          ])
+        : [{ data: [] as ClaseAsistencia[] }, { data: [] as ClaseNotaAlumno[] }];
     const asistenciasList = (asistencias ?? []) as ClaseAsistencia[];
+    const notasAlumnoList = (notasAlumno ?? []) as ClaseNotaAlumno[];
+    const notaPorSesionYAlumno = new Map(notasAlumnoList.map((n) => [`${n.sesion_id}:${n.alumno_id}`, n.nota]));
+    const nombrePorAlumnoId = new Map(todosAlumnosList.map((a) => [a.id, a.nombre_completo]));
 
     const presentesPorSesion = new Map<string, number>();
     const totalPorSesion = new Map<string, number>();
+    const asistenciasPorSesion = new Map<string, ClaseAsistencia[]>();
     for (const a of asistenciasList) {
       totalPorSesion.set(a.sesion_id, (totalPorSesion.get(a.sesion_id) ?? 0) + 1);
       if (a.presente) presentesPorSesion.set(a.sesion_id, (presentesPorSesion.get(a.sesion_id) ?? 0) + 1);
+      const lista = asistenciasPorSesion.get(a.sesion_id) ?? [];
+      lista.push(a);
+      asistenciasPorSesion.set(a.sesion_id, lista);
     }
 
     return (
@@ -127,35 +138,50 @@ export default async function AsistenciaAcademicaPage({
               ) : (
                 <div className="glass overflow-hidden rounded-2xl">
                   {sesionesList.map((s, i) => (
-                    <div
+                    <details
                       key={s.id}
-                      className={`flex items-center justify-between gap-3 px-5 py-4 ${
-                        i !== 0 ? "border-t border-black/5 dark:border-white/5" : ""
-                      }`}
+                      className={`group ${i !== 0 ? "border-t border-black/5 dark:border-white/5" : ""}`}
                     >
-                      <div>
-                        <p className="text-sm font-medium capitalize">{formatFecha(s.fecha)}</p>
-                        {s.tema_id && temaById.has(s.tema_id) && (
-                          <span className="mr-1.5 inline-block rounded-full bg-jom-yellow/40 px-2 py-0.5 text-xs font-medium text-jom-ink">
-                            {temaById.get(s.tema_id)}
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+                        <div>
+                          <p className="text-sm font-medium capitalize">{formatFecha(s.fecha)}</p>
+                          {s.tema_id && temaById.has(s.tema_id) && (
+                            <span className="mr-1.5 inline-block rounded-full bg-jom-yellow/40 px-2 py-0.5 text-xs font-medium text-jom-ink">
+                              {temaById.get(s.tema_id)}
+                            </span>
+                          )}
+                          {s.nota && <p className="text-muted text-xs">{s.nota}</p>}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted inline-flex items-center gap-1 text-xs">
+                            <Users size={13} />
+                            {presentesPorSesion.get(s.id) ?? 0}/{totalPorSesion.get(s.id) ?? 0}
                           </span>
-                        )}
-                        {s.nota && <p className="text-muted text-xs">{s.nota}</p>}
+                          <ConfirmDeleteButton
+                            accion={eliminarSesionAsistencia.bind(null, s.id)}
+                            mensaje="¿Eliminar esta clase? Se borrará también la asistencia registrada. Esto no se puede deshacer."
+                            className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
+                          >
+                            <Trash2 size={14} />
+                          </ConfirmDeleteButton>
+                        </div>
+                      </summary>
+                      <div className="border-t border-black/5 dark:border-white/5">
+                        <p className="px-5 pt-3 text-xs font-medium uppercase text-muted">Notas por alumno</p>
+                        <NotasAlumnosClaseSection
+                          sesionId={s.id}
+                          alumnos={(asistenciasPorSesion.get(s.id) ?? [])
+                            .slice()
+                            .sort((a, b) => (nombrePorAlumnoId.get(a.alumno_id) ?? "").localeCompare(nombrePorAlumnoId.get(b.alumno_id) ?? ""))
+                            .map((a) => ({
+                              id: a.alumno_id,
+                              nombre_completo: nombrePorAlumnoId.get(a.alumno_id) ?? "Alumno",
+                              presente: a.presente,
+                              nota: notaPorSesionYAlumno.get(`${s.id}:${a.alumno_id}`) ?? "",
+                            }))}
+                        />
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-muted inline-flex items-center gap-1 text-xs">
-                          <Users size={13} />
-                          {presentesPorSesion.get(s.id) ?? 0}/{totalPorSesion.get(s.id) ?? 0}
-                        </span>
-                        <ConfirmDeleteButton
-                          accion={eliminarSesionAsistencia.bind(null, s.id)}
-                          mensaje="¿Eliminar esta clase? Se borrará también la asistencia registrada. Esto no se puede deshacer."
-                          className="text-muted rounded-full p-1.5 transition-colors hover:bg-jom-pink/30 hover:text-jom-ink"
-                        >
-                          <Trash2 size={14} />
-                        </ConfirmDeleteButton>
-                      </div>
-                    </div>
+                    </details>
                   ))}
                 </div>
               )}

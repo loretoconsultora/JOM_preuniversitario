@@ -533,6 +533,14 @@ export type ClaseAsistencia = {
   presente: boolean;
 };
 
+export type ClaseNotaAlumno = {
+  sesion_id: string;
+  alumno_id: string;
+  nota: string;
+  creado_por: string;
+  updated_at: string;
+};
+
 export type NotificacionDocente = {
   id: string;
   docente_id: string;

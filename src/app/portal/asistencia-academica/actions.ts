@@ -53,6 +53,33 @@ export async function eliminarSesionAsistencia(id: string): Promise<ActionResult
   }
 }
 
+export async function guardarNotaAlumnoClase(sesionId: string, alumnoId: string, nota: string): Promise<ActionResult> {
+  const profile = await requireDocente();
+  const texto = nota.trim();
+
+  try {
+    const supabase = await createClient();
+    if (!texto) {
+      const { error } = await supabase.from("clase_notas_alumno").delete().eq("sesion_id", sesionId).eq("alumno_id", alumnoId);
+      if (error) return actionError(error.message);
+    } else {
+      const { error } = await supabase
+        .from("clase_notas_alumno")
+        .upsert(
+          { sesion_id: sesionId, alumno_id: alumnoId, nota: texto, creado_por: profile.id, updated_at: new Date().toISOString() },
+          { onConflict: "sesion_id,alumno_id" }
+        );
+      if (error) return actionError(error.message);
+    }
+
+    revalidatePath("/portal/asistencia-academica");
+    return actionOk({});
+  } catch (e) {
+    console.error("guardarNotaAlumnoClase:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
 export async function actualizarInscripcionMateria(materiaId: string, alumnoIds: string[]): Promise<ActionResult> {
   const profile = await requireDocente();
 
