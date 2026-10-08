@@ -2,10 +2,8 @@ import Link from "next/link";
 import { Plus, ChevronRight, User } from "lucide-react";
 import { requireCoachVocacionalODirectora } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Orientado, OrientacionRecurso } from "@/types/database";
+import type { Orientado } from "@/types/database";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { RecursosOrientacionSection } from "@/components/recursos-orientacion-section";
-import { ORIENTACION_RECURSOS_BUCKET } from "@/lib/storage";
 import { eliminarOrientado } from "./actions";
 
 export default async function OrientadosPage() {
@@ -13,32 +11,17 @@ export default async function OrientadosPage() {
   const esCoach = profile.role === "coach_vocacional";
   const supabase = await createClient();
 
-  const [{ data: orientados }, { data: recursos }] = await Promise.all([
-    supabase.from("orientados").select("*").order("nombre"),
-    esCoach
-      ? supabase.from("orientacion_recursos").select("*").is("orientado_id", null).order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as OrientacionRecurso[] }),
-  ]);
+  const { data: orientados } = await supabase.from("orientados").select("*").order("nombre");
 
   const orientadosList = (orientados ?? []) as Orientado[];
-  const recursosList = (recursos ?? []) as OrientacionRecurso[];
   const activos = orientadosList.filter((o) => o.activo);
   const inactivos = orientadosList.filter((o) => !o.activo);
-
-  const urlPorArchivo: Record<string, string> = {};
-  const rutasArchivo = recursosList.filter((r) => r.storage_path).map((r) => r.storage_path as string);
-  if (rutasArchivo.length > 0) {
-    const { data: signedUrls } = await supabase.storage.from(ORIENTACION_RECURSOS_BUCKET).createSignedUrls(rutasArchivo, 3600);
-    for (const s of signedUrls ?? []) {
-      if (s.signedUrl && s.path) urlPorArchivo[s.path] = s.signedUrl;
-    }
-  }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Orientación vocacional</h1>
+          <h1 className="text-2xl font-semibold">Perfiles</h1>
           <p className="text-muted text-sm">{activos.length} en seguimiento activo</p>
         </div>
         {esCoach && (
@@ -100,18 +83,6 @@ export default async function OrientadosPage() {
             ))}
           </div>
         </details>
-      )}
-
-      {esCoach && (
-        <div className="glass flex flex-col gap-3 rounded-2xl p-5">
-          <div>
-            <p className="text-sm font-semibold">Biblioteca general</p>
-            <p className="text-muted text-xs">
-              Recursos visibles para todos tus orientados (guías, links de universidades, etc.).
-            </p>
-          </div>
-          <RecursosOrientacionSection orientadoId={null} recursos={recursosList} urlPorArchivo={urlPorArchivo} titulo="" />
-        </div>
       )}
     </div>
   );

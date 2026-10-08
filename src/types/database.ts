@@ -330,6 +330,29 @@ export type OrientacionTestRespuesta = {
   created_at: string;
 };
 
+export type OrientacionAtributo = {
+  id: string;
+  nombre: string;
+  creado_por: string;
+  created_at: string;
+};
+
+export type OrientacionEvaluacion = {
+  id: string;
+  orientado_id: string;
+  sesion_id: string;
+  conclusiones: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type OrientacionEvaluacionCalificacion = {
+  id: string;
+  evaluacion_id: string;
+  atributo_id: string;
+  calificacion: number;
+};
+
 export type PasoOrientacion = {
   id: string;
   texto: string;
