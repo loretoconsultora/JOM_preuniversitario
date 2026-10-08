@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ClipboardCheck } from "lucide-react";
+import { AlertTriangle, ClipboardCheck } from "lucide-react";
 import { requireCoachVocacionalODirectora } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AlumnoSelector } from "@/components/alumno-selector";
+import { OrientadoQuickActions } from "@/components/orientado-quick-actions";
 import type { Orientado, OrientacionSesion } from "@/types/database";
 
 function formatFecha(fecha: string) {
@@ -22,13 +23,13 @@ function calcularStats(sesiones: OrientacionSesion[], hoy: string) {
 
 type FilaAsistencia = { orientado: Orientado } & ReturnType<typeof calcularStats>;
 
-function TablaAsistencia({ filasTabla }: { filasTabla: FilaAsistencia[] }) {
+function TablaAsistencia({ filasTabla, mostrarNombre = true }: { filasTabla: FilaAsistencia[]; mostrarNombre?: boolean }) {
   return (
     <div className="glass overflow-hidden rounded-2xl">
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-black/5 text-xs uppercase text-muted dark:border-white/10">
-            <th className="px-5 py-3 font-medium">Nombre</th>
+            {mostrarNombre && <th className="px-5 py-3 font-medium">Nombre</th>}
             <th className="px-5 py-3 font-medium">Citas agendadas</th>
             <th className="px-5 py-3 font-medium">Próximas citas</th>
             <th className="px-5 py-3 font-medium">Reprogramadas</th>
@@ -40,11 +41,13 @@ function TablaAsistencia({ filasTabla }: { filasTabla: FilaAsistencia[] }) {
         <tbody>
           {filasTabla.map((f) => (
             <tr key={f.orientado.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
-              <td className="px-5 py-3 font-medium">
-                <Link href={`/portal/asistencia-orientacion?alumno=${f.orientado.id}`} className="hover:underline">
-                  {f.orientado.nombre}
-                </Link>
-              </td>
+              {mostrarNombre && (
+                <td className="px-5 py-3 font-medium">
+                  <Link href={`/portal/asistencia-orientacion?alumno=${f.orientado.id}`} className="hover:underline">
+                    {f.orientado.nombre}
+                  </Link>
+                </td>
+              )}
               <td className="px-5 py-3">{f.agendadas}</td>
               <td className="px-5 py-3">{f.proximas}</td>
               <td className="px-5 py-3">{f.reprogramadas}</td>
@@ -64,7 +67,8 @@ export default async function AsistenciaOrientacionPage({
 }: {
   searchParams: Promise<{ alumno?: string }>;
 }) {
-  await requireCoachVocacionalODirectora();
+  const profile = await requireCoachVocacionalODirectora();
+  const esCoach = profile.role === "coach_vocacional";
   const { alumno: alumnoParam } = await searchParams;
   const supabase = await createClient();
 
@@ -83,6 +87,12 @@ export default async function AsistenciaOrientacionPage({
     orientado: o,
     ...calcularStats(sesionesList.filter((s) => s.orientado_id === o.id), hoy),
   }));
+
+  const citasPorConfirmar = orientadoId
+    ? sesionesList
+        .filter((s) => s.orientado_id === orientadoId && s.estado === "pendiente" && s.fecha <= hoy)
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    : [];
 
   const citasEfectivas = orientadoId
     ? sesionesList
@@ -109,7 +119,26 @@ export default async function AsistenciaOrientacionPage({
         <TablaAsistencia filasTabla={filas} />
       ) : (
         <div className="flex flex-col gap-6">
-          <TablaAsistencia filasTabla={filas.filter((f) => f.orientado.id === orientadoId)} />
+          <TablaAsistencia filasTabla={filas.filter((f) => f.orientado.id === orientadoId)} mostrarNombre={false} />
+
+          {esCoach && citasPorConfirmar.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-jom-pink">
+                <AlertTriangle size={15} /> Citas por confirmar
+              </p>
+              <div className="glass flex flex-col gap-3 rounded-2xl border border-jom-pink/40 p-5">
+                {citasPorConfirmar.map((s) => (
+                  <div key={s.id} className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5">
+                    <p className="text-sm font-medium">
+                      Cita del {formatFecha(s.fecha)}
+                      {s.hora && ` · ${s.hora.slice(0, 5)}`} — pendiente por confirmar
+                    </p>
+                    <OrientadoQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             <p className="text-sm font-semibold">Resumen de citas efectivas</p>
@@ -127,7 +156,11 @@ export default async function AsistenciaOrientacionPage({
                         {formatFecha(s.fecha)}
                         {s.hora && ` · ${s.hora.slice(0, 5)}`}
                       </p>
-                      {s.nota ? <p className="text-muted text-sm">{s.nota}</p> : <p className="text-muted text-xs">Sin nota</p>}
+                      {s.nota ? (
+                        <div className="rich-content text-muted text-sm" dangerouslySetInnerHTML={{ __html: s.nota }} />
+                      ) : (
+                        <p className="text-muted text-xs">Sin nota</p>
+                      )}
                     </div>
                     <Link
                       href={`/portal/evaluaciones-orientacion?sesion=${s.id}`}
