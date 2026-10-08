@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { AlertTriangle, ClipboardCheck, User } from "lucide-react";
-import { requireCoachVocacionalODirectora } from "@/lib/auth";
+import { AlertTriangle, User } from "lucide-react";
+import { requirePsicopedagogia } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AlumnoSelector } from "@/components/alumno-selector";
-import { OrientadoQuickActions } from "@/components/orientado-quick-actions";
-import type { Orientado, OrientacionSesion } from "@/types/database";
+import { PsicopedagogiaQuickActions } from "@/components/psicopedagogia-quick-actions";
+import type { PsicopedagogiaCaso, PsicopedagogiaSesion } from "@/types/database";
 
 function formatFecha(fecha: string) {
   return new Date(`${fecha}T00:00:00`).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "short" });
 }
 
-function calcularStats(sesiones: OrientacionSesion[], hoy: string) {
+function calcularStats(sesiones: PsicopedagogiaSesion[], hoy: string) {
   const agendadas = sesiones.length;
   const proximas = sesiones.filter((s) => s.estado === "pendiente" && s.fecha > hoy).length;
   const reprogramadas = sesiones.filter((s) => s.estado === "reagendada").length;
@@ -21,7 +21,7 @@ function calcularStats(sesiones: OrientacionSesion[], hoy: string) {
   return { agendadas, proximas, reprogramadas, asistio, noAsistio, porcentaje };
 }
 
-type FilaAsistencia = { orientado: Orientado } & ReturnType<typeof calcularStats>;
+type FilaAsistencia = { caso: PsicopedagogiaCaso } & ReturnType<typeof calcularStats>;
 
 function TablaAsistencia({ filasTabla, mostrarNombre = true }: { filasTabla: FilaAsistencia[]; mostrarNombre?: boolean }) {
   return (
@@ -40,11 +40,11 @@ function TablaAsistencia({ filasTabla, mostrarNombre = true }: { filasTabla: Fil
         </thead>
         <tbody>
           {filasTabla.map((f) => (
-            <tr key={f.orientado.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
+            <tr key={f.caso.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
               {mostrarNombre && (
                 <td className="px-5 py-3 font-medium">
-                  <Link href={`/portal/asistencia-orientacion?vista=alumno&alumno=${f.orientado.id}`} className="hover:underline">
-                    {f.orientado.nombre}
+                  <Link href={`/portal/asistencia-psicopedagogia?vista=caso&caso=${f.caso.id}`} className="hover:underline">
+                    {f.caso.nombre}
                   </Link>
                 </td>
               )}
@@ -77,21 +77,19 @@ function Avatar({ url }: { url: string | null | undefined }) {
   );
 }
 
-type SesionConOrientado = OrientacionSesion & { orientado: Orientado | undefined };
+type SesionConCaso = PsicopedagogiaSesion & { caso: PsicopedagogiaCaso | undefined };
 
 function Grupo({
   titulo,
   sesiones,
   vacio,
-  avatarPorOrientado,
-  esCoach,
+  avatarPorCaso,
   hoy,
 }: {
   titulo: string;
-  sesiones: SesionConOrientado[];
+  sesiones: SesionConCaso[];
   vacio: string;
-  avatarPorOrientado: Map<string, string | null>;
-  esCoach: boolean;
+  avatarPorCaso: Map<string, string | null>;
   hoy: string;
 }) {
   return (
@@ -104,10 +102,10 @@ function Grupo({
           {sesiones.map((s) => (
             <div key={s.id} className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5">
               <div className="flex items-center gap-2.5">
-                <Avatar url={s.orientado ? avatarPorOrientado.get(s.orientado.id) : null} />
+                <Avatar url={s.caso ? avatarPorCaso.get(s.caso.id) : null} />
                 <div>
-                  <Link href={`/portal/orientados/${s.orientado_id}`} className="text-sm font-medium hover:underline">
-                    {s.orientado?.nombre ?? "Caso"}
+                  <Link href={`/portal/psicopedagogia/${s.caso_id}`} className="text-sm font-medium hover:underline">
+                    {s.caso?.nombre ?? "Caso"}
                   </Link>
                   <p className="text-muted text-xs">
                     {formatFecha(s.fecha)}
@@ -115,11 +113,7 @@ function Grupo({
                   </p>
                 </div>
               </div>
-              {esCoach ? (
-                <OrientadoQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable={s.fecha <= hoy} />
-              ) : (
-                <span className="text-muted w-fit rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-medium dark:bg-white/10">{s.estado}</span>
-              )}
+              <PsicopedagogiaQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable={s.fecha <= hoy} />
             </div>
           ))}
         </div>
@@ -128,57 +122,52 @@ function Grupo({
   );
 }
 
-export default async function AsistenciaOrientacionPage({
+export default async function AsistenciaPsicopedagogiaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; alumno?: string }>;
+  searchParams: Promise<{ vista?: string; caso?: string }>;
 }) {
-  const profile = await requireCoachVocacionalODirectora();
-  const esCoach = profile.role === "coach_vocacional";
-  const { vista: vistaParam, alumno: alumnoParam } = await searchParams;
-  const vista = vistaParam === "alumno" ? "alumno" : "calendario";
+  await requirePsicopedagogia();
+  const { vista: vistaParam, caso: casoParam } = await searchParams;
+  const vista = vistaParam === "caso" ? "caso" : "calendario";
   const supabase = await createClient();
 
-  const [{ data: orientados }, { data: sesiones }] = await Promise.all([
-    supabase.from("orientados").select("*").order("nombre"),
-    supabase.from("orientacion_sesiones").select("*"),
+  const [{ data: casos }, { data: sesiones }] = await Promise.all([
+    supabase.from("psicopedagogia_casos").select("*").order("nombre"),
+    supabase.from("psicopedagogia_sesiones").select("*"),
   ]);
-  const orientadosList = (orientados ?? []) as Orientado[];
-  const sesionesList = (sesiones ?? []) as OrientacionSesion[];
-  const orientadoPorId = new Map(orientadosList.map((o) => [o.id, o]));
+  const casosList = (casos ?? []) as PsicopedagogiaCaso[];
+  const sesionesList = (sesiones ?? []) as PsicopedagogiaSesion[];
+  const casoPorId = new Map(casosList.map((c) => [c.id, c]));
   const ahora = new Date();
   const hoy = ahora.toISOString().slice(0, 10);
   const en7dias = new Date(ahora.getTime() + 1000 * 60 * 60 * 24 * 7).toISOString().slice(0, 10);
   const hace7dias = new Date(ahora.getTime() - 1000 * 60 * 60 * 24 * 7).toISOString().slice(0, 10);
 
-  const alumnoIds = orientadosList.map((o) => o.alumno_id).filter((id): id is string => Boolean(id));
+  const alumnoIds = casosList.map((c) => c.alumno_id).filter((id): id is string => Boolean(id));
   const { data: alumnosVinculados } =
     alumnoIds.length > 0
       ? await supabase.from("profiles").select("id, avatar_url").in("id", alumnoIds)
       : { data: [] as { id: string; avatar_url: string | null }[] };
   const avatarPorAlumno = new Map((alumnosVinculados ?? []).map((a) => [a.id, a.avatar_url]));
-  const avatarPorOrientado = new Map(
-    orientadosList.map((o) => [o.id, o.alumno_id ? (avatarPorAlumno.get(o.alumno_id) ?? null) : null])
-  );
+  const avatarPorCaso = new Map(casosList.map((c) => [c.id, c.alumno_id ? (avatarPorAlumno.get(c.alumno_id) ?? null) : null]));
 
-  const orientadoId = alumnoParam && orientadosList.some((o) => o.id === alumnoParam) ? alumnoParam : "";
-  const orientadoSeleccionado = orientadoId ? orientadosList.find((o) => o.id === orientadoId) : null;
+  const casoId = casoParam && casosList.some((c) => c.id === casoParam) ? casoParam : "";
+  const casoSeleccionado = casoId ? casosList.find((c) => c.id === casoId) : null;
 
-  const filas = orientadosList.map((o) => ({
-    orientado: o,
-    ...calcularStats(sesionesList.filter((s) => s.orientado_id === o.id), hoy),
+  const filas = casosList.map((c) => ({
+    caso: c,
+    ...calcularStats(sesionesList.filter((s) => s.caso_id === c.id), hoy),
   }));
 
-  const citasPorConfirmar = orientadoId
+  const citasPorConfirmar = casoId
     ? sesionesList
-        .filter((s) => s.orientado_id === orientadoId && s.estado === "pendiente" && s.fecha <= hoy)
+        .filter((s) => s.caso_id === casoId && s.estado === "pendiente" && s.fecha <= hoy)
         .sort((a, b) => a.fecha.localeCompare(b.fecha))
     : [];
 
-  const citasEfectivas = orientadoId
-    ? sesionesList
-        .filter((s) => s.orientado_id === orientadoId && s.estado === "asistio")
-        .sort((a, b) => b.fecha.localeCompare(a.fecha))
+  const citasEfectivas = casoId
+    ? sesionesList.filter((s) => s.caso_id === casoId && s.estado === "asistio").sort((a, b) => b.fecha.localeCompare(a.fecha))
     : [];
 
   const tabClass = (activo: boolean) =>
@@ -190,50 +179,47 @@ export default async function AsistenciaOrientacionPage({
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">Asistencia</h1>
-        <p className="text-muted text-sm">Control de asistencia a sesiones de orientación vocacional</p>
+        <p className="text-muted text-sm">Control de asistencia a sesiones de psicopedagogía</p>
       </div>
 
       <div className="flex gap-1.5">
-        <Link href="/portal/asistencia-orientacion?vista=calendario" className={tabClass(vista === "calendario")}>
+        <Link href="/portal/asistencia-psicopedagogia?vista=calendario" className={tabClass(vista === "calendario")}>
           Por calendario
         </Link>
-        <Link href="/portal/asistencia-orientacion?vista=alumno" className={tabClass(vista === "alumno")}>
-          Por alumno
+        <Link href="/portal/asistencia-psicopedagogia?vista=caso" className={tabClass(vista === "caso")}>
+          Por caso
         </Link>
       </div>
 
-      {orientadosList.length === 0 ? (
+      {casosList.length === 0 ? (
         <div className="glass rounded-2xl p-8 text-center text-sm text-muted">Aún no hay casos registrados.</div>
       ) : vista === "calendario" ? (
         (() => {
-          const conOrientado = (lista: OrientacionSesion[]): SesionConOrientado[] =>
-            lista.map((s) => ({ ...s, orientado: orientadoPorId.get(s.orientado_id) }));
+          const conCaso = (lista: PsicopedagogiaSesion[]): SesionConCaso[] => lista.map((s) => ({ ...s, caso: casoPorId.get(s.caso_id) }));
 
-          const deHoy = conOrientado(sesionesList.filter((s) => s.fecha === hoy));
-          const proximaSemana = conOrientado(
+          const deHoy = conCaso(sesionesList.filter((s) => s.fecha === hoy));
+          const proximaSemana = conCaso(
             sesionesList.filter((s) => s.fecha > hoy && s.fecha <= en7dias).sort((a, b) => a.fecha.localeCompare(b.fecha))
           );
-          const semanaPasada = conOrientado(
+          const semanaPasada = conCaso(
             sesionesList.filter((s) => s.fecha < hoy && s.fecha >= hace7dias).sort((a, b) => b.fecha.localeCompare(a.fecha))
           );
 
           return (
             <>
-              <Grupo titulo="Hoy" sesiones={deHoy} vacio="No hay sesiones agendadas para hoy." avatarPorOrientado={avatarPorOrientado} esCoach={esCoach} hoy={hoy} />
+              <Grupo titulo="Hoy" sesiones={deHoy} vacio="No hay sesiones agendadas para hoy." avatarPorCaso={avatarPorCaso} hoy={hoy} />
               <Grupo
                 titulo="Próximos 7 días"
                 sesiones={proximaSemana}
                 vacio="No hay sesiones agendadas para los próximos 7 días."
-                avatarPorOrientado={avatarPorOrientado}
-                esCoach={esCoach}
+                avatarPorCaso={avatarPorCaso}
                 hoy={hoy}
               />
               <Grupo
                 titulo="Últimos 7 días"
                 sesiones={semanaPasada}
                 vacio="No hay sesiones registradas en los últimos 7 días."
-                avatarPorOrientado={avatarPorOrientado}
-                esCoach={esCoach}
+                avatarPorCaso={avatarPorCaso}
                 hoy={hoy}
               />
             </>
@@ -242,18 +228,18 @@ export default async function AsistenciaOrientacionPage({
       ) : (
         <div className="flex flex-col gap-6">
           <AlumnoSelector
-            alumnos={orientadosList.map((o) => ({ id: o.id, nombre: o.nombre }))}
-            seleccionado={orientadoId}
-            basePath="/portal/asistencia-orientacion?vista=alumno"
+            alumnos={casosList.map((c) => ({ id: c.id, nombre: c.nombre }))}
+            seleccionado={casoId}
+            basePath="/portal/asistencia-psicopedagogia?vista=caso"
           />
 
-          {!orientadoSeleccionado ? (
+          {!casoSeleccionado ? (
             <TablaAsistencia filasTabla={filas} />
           ) : (
             <div className="flex flex-col gap-6">
-              <TablaAsistencia filasTabla={filas.filter((f) => f.orientado.id === orientadoId)} mostrarNombre={false} />
+              <TablaAsistencia filasTabla={filas.filter((f) => f.caso.id === casoId)} mostrarNombre={false} />
 
-              {esCoach && citasPorConfirmar.length > 0 && (
+              {citasPorConfirmar.length > 0 && (
                 <div className="flex flex-col gap-3">
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-jom-pink">
                     <AlertTriangle size={15} /> Citas por confirmar
@@ -265,7 +251,7 @@ export default async function AsistenciaOrientacionPage({
                           Cita del {formatFecha(s.fecha)}
                           {s.hora && ` · ${s.hora.slice(0, 5)}`} — pendiente por confirmar
                         </p>
-                        <OrientadoQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable />
+                        <PsicopedagogiaQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable />
                       </div>
                     ))}
                   </div>
@@ -279,27 +265,16 @@ export default async function AsistenciaOrientacionPage({
                 ) : (
                   <div className="glass flex flex-col gap-3 rounded-2xl p-5">
                     {citasEfectivas.map((s) => (
-                      <div
-                        key={s.id}
-                        className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5 sm:flex-row sm:items-start sm:justify-between"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">
-                            {formatFecha(s.fecha)}
-                            {s.hora && ` · ${s.hora.slice(0, 5)}`}
-                          </p>
-                          {s.nota ? (
-                            <div className="rich-content text-muted text-sm" dangerouslySetInnerHTML={{ __html: s.nota }} />
-                          ) : (
-                            <p className="text-muted text-xs">Sin nota</p>
-                          )}
-                        </div>
-                        <Link
-                          href={`/portal/evaluaciones-orientacion?sesion=${s.id}`}
-                          className="text-muted inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium hover:bg-black/10 dark:bg-white/10"
-                        >
-                          <ClipboardCheck size={13} /> Abrir evaluación
-                        </Link>
+                      <div key={s.id} className="flex flex-col gap-1.5 border-b border-black/5 pb-3 last:border-0 last:pb-0 dark:border-white/5">
+                        <p className="text-sm font-medium">
+                          {formatFecha(s.fecha)}
+                          {s.hora && ` · ${s.hora.slice(0, 5)}`}
+                        </p>
+                        {s.nota ? (
+                          <div className="rich-content text-muted text-sm" dangerouslySetInnerHTML={{ __html: s.nota }} />
+                        ) : (
+                          <p className="text-muted text-xs">Sin nota</p>
+                        )}
                       </div>
                     ))}
                   </div>
