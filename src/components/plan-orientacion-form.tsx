@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Check, Trash2, Undo2, Pencil } from "lucide-react";
 import { guardarPlanOrientacion } from "@/app/portal/orientados/actions";
+import { PlanOrientacionResumen } from "@/components/plan-orientacion-resumen";
 import type { OrientacionPlan, PasoOrientacion } from "@/types/database";
 
 function formatFecha(fecha: string) {
@@ -13,19 +14,17 @@ function formatFecha(fecha: string) {
 function TagInput({
   label,
   valores,
-  disabled,
   onAgregar,
   onQuitar,
 }: {
   label: string;
   valores: string[];
-  disabled: boolean;
   onAgregar: (valor: string) => void;
   onQuitar: (index: number) => void;
 }) {
   const [borrador, setBorrador] = useState("");
   const inputClass =
-    "glass flex-1 rounded-xl px-3.5 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink disabled:opacity-60";
+    "glass flex-1 rounded-xl px-3.5 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
 
   function confirmar() {
     const valor = borrador.trim();
@@ -47,15 +46,13 @@ function TagInput({
               confirmar();
             }
           }}
-          disabled={disabled}
           placeholder="Escribe y presiona Enter"
           className={inputClass}
         />
         <button
           type="button"
           onClick={confirmar}
-          disabled={disabled}
-          className="rounded-xl bg-black/5 px-3.5 text-sm font-medium transition-colors hover:bg-black/10 disabled:opacity-60 dark:bg-white/10 dark:hover:bg-white/15"
+          className="rounded-xl bg-black/5 px-3.5 text-sm font-medium transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
         >
           Agregar
         </button>
@@ -70,11 +67,9 @@ function TagInput({
               }`}
             >
               {v}
-              {!disabled && (
-                <button type="button" onClick={() => onQuitar(i)} aria-label={`Quitar ${v}`} className="hover:opacity-60">
-                  <X size={11} />
-                </button>
-              )}
+              <button type="button" onClick={() => onQuitar(i)} aria-label={`Quitar ${v}`} className="hover:opacity-60">
+                <X size={11} />
+              </button>
             </span>
           ))}
         </div>
@@ -100,16 +95,10 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
   const [pasoTexto, setPasoTexto] = useState("");
   const [pasoFecha, setPasoFecha] = useState("");
   const [guardando, setGuardando] = useState(false);
-  const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const inputClass =
-    "glass rounded-xl px-3.5 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink disabled:opacity-60";
-  const bloqueado = !editando;
-
-  function marcarCambio() {
-    setGuardado(false);
-  }
+    "glass rounded-xl px-3.5 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
 
   function agregarPaso() {
     const texto = pasoTexto.trim();
@@ -120,17 +109,14 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
     ]);
     setPasoTexto("");
     setPasoFecha("");
-    marcarCambio();
   }
 
   function alternarCompletado(id: string) {
     setPasos((prev) => prev.map((p) => (p.id === id ? { ...p, completado: !p.completado } : p)));
-    marcarCambio();
   }
 
   function eliminarPaso(id: string) {
     setPasos((prev) => prev.filter((p) => p.id !== id));
-    marcarCambio();
   }
 
   const pendientes = pasos
@@ -157,7 +143,6 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
         setError(resultado.error);
         return;
       }
-      setGuardado(true);
       setEditando(false);
       router.refresh();
     } catch {
@@ -167,17 +152,28 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
     }
   }
 
+  if (!editando) {
+    return (
+      <div className="flex flex-col gap-4">
+        {plan ? <PlanOrientacionResumen plan={plan} /> : <p className="text-muted text-sm">Todavía no hay un plan registrado.</p>}
+        <button
+          type="button"
+          onClick={() => setEditando(true)}
+          className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/5 px-4 py-2 text-xs font-semibold transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+        >
+          <Pencil size={13} /> Actualizar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm">
         Metas
         <textarea
           value={metas}
-          onChange={(e) => {
-            setMetas(e.target.value);
-            marcarCambio();
-          }}
-          disabled={bloqueado}
+          onChange={(e) => setMetas(e.target.value)}
           rows={2}
           placeholder="Qué busca lograr en este proceso"
           className={inputClass}
@@ -187,29 +183,15 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
       <TagInput
         label="Carreras de interés"
         valores={carreras}
-        disabled={bloqueado}
-        onAgregar={(v) => {
-          setCarreras((prev) => [...prev, v]);
-          marcarCambio();
-        }}
-        onQuitar={(i) => {
-          setCarreras((prev) => prev.filter((_, idx) => idx !== i));
-          marcarCambio();
-        }}
+        onAgregar={(v) => setCarreras((prev) => [...prev, v])}
+        onQuitar={(i) => setCarreras((prev) => prev.filter((_, idx) => idx !== i))}
       />
 
       <TagInput
         label="Universidades de interés"
         valores={universidades}
-        disabled={bloqueado}
-        onAgregar={(v) => {
-          setUniversidades((prev) => [...prev, v]);
-          marcarCambio();
-        }}
-        onQuitar={(i) => {
-          setUniversidades((prev) => prev.filter((_, idx) => idx !== i));
-          marcarCambio();
-        }}
+        onAgregar={(v) => setUniversidades((prev) => [...prev, v])}
+        onQuitar={(i) => setUniversidades((prev) => prev.filter((_, idx) => idx !== i))}
       />
 
       <div className="flex flex-col gap-1.5 text-sm">
@@ -224,22 +206,14 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
                 agregarPaso();
               }
             }}
-            disabled={bloqueado}
             placeholder="Ej. Agendar visita a la universidad"
             className={`${inputClass} flex-1`}
           />
-          <input
-            type="date"
-            value={pasoFecha}
-            onChange={(e) => setPasoFecha(e.target.value)}
-            disabled={bloqueado}
-            className={`${inputClass} w-auto`}
-          />
+          <input type="date" value={pasoFecha} onChange={(e) => setPasoFecha(e.target.value)} className={`${inputClass} w-auto`} />
           <button
             type="button"
             onClick={agregarPaso}
-            disabled={bloqueado}
-            className="rounded-xl bg-black/5 px-3.5 text-sm font-medium transition-colors hover:bg-black/10 disabled:opacity-60 dark:bg-white/10 dark:hover:bg-white/15"
+            className="rounded-xl bg-black/5 px-3.5 text-sm font-medium transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
           >
             Agregar
           </button>
@@ -257,9 +231,8 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
                     <button
                       type="button"
                       onClick={() => alternarCompletado(p.id)}
-                      disabled={bloqueado}
                       aria-label="Marcar como completado"
-                      className="text-muted flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-black/15 hover:border-jom-pink hover:text-jom-pink disabled:opacity-60 dark:border-white/20"
+                      className="text-muted flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-black/15 hover:border-jom-pink hover:text-jom-pink dark:border-white/20"
                     >
                       <Check size={11} />
                     </button>
@@ -271,9 +244,8 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
                   <button
                     type="button"
                     onClick={() => eliminarPaso(p.id)}
-                    disabled={bloqueado}
                     aria-label="Eliminar paso"
-                    className="text-muted shrink-0 rounded-full p-1 hover:bg-jom-pink/20 hover:text-jom-ink disabled:opacity-60"
+                    className="text-muted shrink-0 rounded-full p-1 hover:bg-jom-pink/20 hover:text-jom-ink"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -299,9 +271,8 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
                   <button
                     type="button"
                     onClick={() => alternarCompletado(p.id)}
-                    disabled={bloqueado}
                     aria-label="Marcar como pendiente de nuevo"
-                    className="text-muted shrink-0 rounded-full p-1 hover:bg-black/10 disabled:opacity-60 dark:hover:bg-white/10"
+                    className="text-muted shrink-0 rounded-full p-1 hover:bg-black/10 dark:hover:bg-white/10"
                   >
                     <Undo2 size={12} />
                   </button>
@@ -314,24 +285,14 @@ export function PlanOrientacionForm({ orientadoId, plan }: { orientadoId: string
 
       {error && <p className="text-xs text-red-500">{error}</p>}
 
-      {bloqueado ? (
-        <button
-          type="button"
-          onClick={() => setEditando(true)}
-          className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/5 px-4 py-2 text-xs font-semibold transition-colors hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
-        >
-          <Pencil size={13} /> Actualizar
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={guardar}
-          disabled={guardando}
-          className="w-fit rounded-full bg-jom-ink px-4 py-2 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
-        >
-          {guardando ? "Guardando…" : guardado ? "Guardado ✓" : "Guardar plan"}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={guardar}
+        disabled={guardando}
+        className="w-fit rounded-full bg-jom-ink px-4 py-2 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
+      >
+        {guardando ? "Guardando…" : "Guardar plan"}
+      </button>
     </div>
   );
 }
