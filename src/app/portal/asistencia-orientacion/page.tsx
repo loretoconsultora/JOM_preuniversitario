@@ -9,13 +9,15 @@ function formatFecha(fecha: string) {
   return new Date(`${fecha}T00:00:00`).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
-function calcularStats(sesiones: OrientacionSesion[]) {
+function calcularStats(sesiones: OrientacionSesion[], hoy: string) {
   const agendadas = sesiones.length;
+  const proximas = sesiones.filter((s) => s.estado === "pendiente" && s.fecha > hoy).length;
   const reprogramadas = sesiones.filter((s) => s.estado === "reagendada").length;
   const asistio = sesiones.filter((s) => s.estado === "asistio").length;
   const noAsistio = sesiones.filter((s) => s.estado === "no_asistio").length;
-  const porcentaje = agendadas > 0 ? Math.round((asistio / agendadas) * 100) : null;
-  return { agendadas, reprogramadas, asistio, noAsistio, porcentaje };
+  const resueltas = agendadas - proximas;
+  const porcentaje = resueltas > 0 ? Math.round((asistio / resueltas) * 100) : null;
+  return { agendadas, proximas, reprogramadas, asistio, noAsistio, porcentaje };
 }
 
 type FilaAsistencia = { orientado: Orientado } & ReturnType<typeof calcularStats>;
@@ -28,6 +30,7 @@ function TablaAsistencia({ filasTabla }: { filasTabla: FilaAsistencia[] }) {
           <tr className="border-b border-black/5 text-xs uppercase text-muted dark:border-white/10">
             <th className="px-5 py-3 font-medium">Nombre</th>
             <th className="px-5 py-3 font-medium">Citas agendadas</th>
+            <th className="px-5 py-3 font-medium">Próximas citas</th>
             <th className="px-5 py-3 font-medium">Reprogramadas</th>
             <th className="px-5 py-3 font-medium">Asistió</th>
             <th className="px-5 py-3 font-medium">No asistió</th>
@@ -43,6 +46,7 @@ function TablaAsistencia({ filasTabla }: { filasTabla: FilaAsistencia[] }) {
                 </Link>
               </td>
               <td className="px-5 py-3">{f.agendadas}</td>
+              <td className="px-5 py-3">{f.proximas}</td>
               <td className="px-5 py-3">{f.reprogramadas}</td>
               <td className="px-5 py-3">{f.asistio}</td>
               <td className="px-5 py-3">{f.noAsistio}</td>
@@ -70,13 +74,14 @@ export default async function AsistenciaOrientacionPage({
   ]);
   const orientadosList = (orientados ?? []) as Orientado[];
   const sesionesList = (sesiones ?? []) as OrientacionSesion[];
+  const hoy = new Date().toISOString().slice(0, 10);
 
   const orientadoId = alumnoParam && orientadosList.some((o) => o.id === alumnoParam) ? alumnoParam : "";
   const orientadoSeleccionado = orientadoId ? orientadosList.find((o) => o.id === orientadoId) : null;
 
   const filas = orientadosList.map((o) => ({
     orientado: o,
-    ...calcularStats(sesionesList.filter((s) => s.orientado_id === o.id)),
+    ...calcularStats(sesionesList.filter((s) => s.orientado_id === o.id), hoy),
   }));
 
   const citasEfectivas = orientadoId
