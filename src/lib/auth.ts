@@ -73,3 +73,27 @@ export async function requireTerapeutaODirectora(): Promise<Profile> {
   }
   return profile;
 }
+
+export async function requireCoachVocacional(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (!tieneRol(profile, "coach_vocacional")) {
+    redirect("/portal");
+  }
+  return profile;
+}
+
+export async function requireCoachVocacionalODirectora(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (!tieneRol(profile, "coach_vocacional") && !tieneRol(profile, "directora")) {
+    redirect("/portal");
+  }
+  return profile;
+}
+
+export async function requirePsicopedagogia(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (!tieneRol(profile, "psicopedagogia")) {
+    redirect("/portal");
+  }
+  return profile;
+}

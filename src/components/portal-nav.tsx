@@ -16,6 +16,8 @@ import {
   Presentation,
   UserCheck,
   MessagesSquare,
+  Compass,
+  Brain,
 } from "lucide-react";
 import type { Role } from "@/types/database";
 
@@ -44,16 +46,44 @@ const ALL_ITEMS = [
   { href: "/portal/pacientes", label: "Pacientes", icon: HeartHandshake, roles: ["terapeuta"] },
   { href: "/portal/asistencia", label: "Asistencia", icon: CalendarCheck, roles: ["terapeuta"] },
   { href: "/portal/evaluaciones-habilidades", label: "Evaluaciones", icon: ClipboardCheck, roles: ["terapeuta"] },
+  { href: "/portal/orientados", label: "Orientación vocacional", icon: Compass, roles: ["coach_vocacional", "directora"] },
+  { href: "/portal/psicopedagogia", label: "Psicopedagogía", icon: Brain, roles: ["psicopedagogia", "directora"] },
   { href: "/portal/seguimiento-salud", label: "Seguimiento de salud", icon: HeartPulse, roles: ["directora"] },
+  {
+    href: "/portal/mi-orientacion",
+    label: "Mi orientación vocacional",
+    icon: Compass,
+    roles: ["alumno"],
+    ocultoSiSinOrientacion: true,
+  },
+  {
+    href: "/portal/mi-psicopedagogia",
+    label: "Mi psicopedagogía",
+    icon: Brain,
+    roles: ["alumno"],
+    ocultoSiSinPsicopedagogia: true,
+  },
 ] as const;
 
-export function PortalNav({ role, acotado = false }: { role: Role; acotado?: boolean }) {
+export function PortalNav({
+  role,
+  acotado = false,
+  tieneOrientacion = false,
+  tienePsicopedagogia = false,
+}: {
+  role: Role;
+  acotado?: boolean;
+  tieneOrientacion?: boolean;
+  tienePsicopedagogia?: boolean;
+}) {
   const pathname = usePathname();
-  const items = ALL_ITEMS.filter(
-    (item) =>
-      (item.roles as readonly string[]).includes(role) &&
-      !(acotado && "ocultoSiAcotado" in item && item.ocultoSiAcotado)
-  );
+  const items = ALL_ITEMS.filter((item) => {
+    if (!(item.roles as readonly string[]).includes(role)) return false;
+    if (acotado && "ocultoSiAcotado" in item && item.ocultoSiAcotado) return false;
+    if ("ocultoSiSinOrientacion" in item && item.ocultoSiSinOrientacion && !tieneOrientacion) return false;
+    if ("ocultoSiSinPsicopedagogia" in item && item.ocultoSiSinPsicopedagogia && !tienePsicopedagogia) return false;
+    return true;
+  });
 
   return (
     <nav className="flex items-center gap-1">

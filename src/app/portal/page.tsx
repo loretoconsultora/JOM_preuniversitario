@@ -10,5 +10,8 @@ export default async function PortalHome() {
   const vistaCookie = cookieStore.get("vista_activa")?.value as Role | undefined;
   const vista = vistaCookie && tieneRol(profile, vistaCookie) ? vistaCookie : profile.role;
 
-  redirect(vista === "terapeuta" ? "/portal/pacientes" : "/portal/tareas");
+  if (vista === "terapeuta") redirect("/portal/pacientes");
+  if (vista === "coach_vocacional") redirect("/portal/orientados");
+  if (vista === "psicopedagogia") redirect("/portal/psicopedagogia");
+  redirect("/portal/tareas");
 }

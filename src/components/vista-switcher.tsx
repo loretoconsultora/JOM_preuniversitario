@@ -11,6 +11,8 @@ const ROLE_LABEL: Record<Role, string> = {
   docente: "Docente",
   directora: "Directora",
   terapeuta: "Terapeuta",
+  coach_vocacional: "Coach vocacional",
+  psicopedagogia: "Psicopedagogía",
 };
 
 export function VistaSwitcher({ roles, vistaActual }: { roles: Role[]; vistaActual: Role }) {

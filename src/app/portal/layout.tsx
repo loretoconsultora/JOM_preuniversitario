@@ -25,6 +25,8 @@ const ROLE_LABEL: Record<string, string> = {
   docente: "Docente",
   directora: "Directora",
   terapeuta: "Terapeuta",
+  coach_vocacional: "Coach vocacional",
+  psicopedagogia: "Psicopedagogía",
 };
 
 export default async function PortalLayout({
@@ -65,8 +67,10 @@ export default async function PortalLayout({
 
   let notificacionesAlumno: NotificacionItem[] = [];
   let sesionesHoy: Awaited<ReturnType<typeof sesionesTerapiaHoy>> = [];
+  let tieneOrientacion = false;
+  let tienePsicopedagogia = false;
   if (vista === "alumno") {
-    const [{ data: notifData }, sesiones] = await Promise.all([
+    const [{ data: notifData }, sesiones, { count: orientadosCount }, { count: psicopedagogiaCount }] = await Promise.all([
       supabase
         .from("notificaciones_alumno")
         .select("*")
@@ -74,6 +78,8 @@ export default async function PortalLayout({
         .order("created_at", { ascending: false })
         .limit(20),
       sesionesTerapiaHoy(profile.id),
+      supabase.from("orientados").select("id", { count: "exact", head: true }).eq("alumno_id", profile.id),
+      supabase.from("psicopedagogia_casos").select("id", { count: "exact", head: true }).eq("alumno_id", profile.id),
     ]);
     notificacionesAlumno = (notifData ?? []).map((n) => ({
       id: n.id,
@@ -87,6 +93,8 @@ export default async function PortalLayout({
           : "/portal/calificaciones",
     }));
     sesionesHoy = sesiones;
+    tieneOrientacion = (orientadosCount ?? 0) > 0;
+    tienePsicopedagogia = (psicopedagogiaCount ?? 0) > 0;
   }
 
   return (
@@ -96,7 +104,7 @@ export default async function PortalLayout({
           <div className="flex min-w-0 items-center gap-6">
             <JomLogo className="h-9 w-auto shrink-0" />
             <div className="min-w-0 overflow-x-auto">
-              <PortalNav role={vista} acotado={acotado} />
+              <PortalNav role={vista} acotado={acotado} tieneOrientacion={tieneOrientacion} tienePsicopedagogia={tienePsicopedagogia} />
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">

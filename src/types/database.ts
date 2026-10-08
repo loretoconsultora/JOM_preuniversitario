@@ -1,4 +1,4 @@
-export type Role = "alumno" | "docente" | "directora" | "terapeuta";
+export type Role = "alumno" | "docente" | "directora" | "terapeuta" | "coach_vocacional" | "psicopedagogia";
 
 export type Profile = {
   id: string;
@@ -267,6 +267,111 @@ export type PacienteSesion = {
   estado: EstadoSesion;
   nota: string | null;
   reagendada_a_id: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+// ============================================================
+// Coach vocacional
+// ============================================================
+export type Orientado = {
+  id: string;
+  coach_id: string;
+  alumno_id: string | null;
+  nombre: string;
+  objetivo: string | null;
+  activo: boolean;
+  created_at: string;
+};
+
+export type OrientacionSesion = {
+  id: string;
+  orientado_id: string;
+  fecha: string;
+  hora: string | null;
+  estado: EstadoSesion;
+  nota: string | null;
+  reagendada_a_id: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type OrientacionTest = {
+  id: string;
+  orientado_id: string;
+  nombre_test: string;
+  resultado: string | null;
+  storage_path: string | null;
+  nombre_archivo: string | null;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  fecha: string;
+  creado_por: string;
+  created_at: string;
+};
+
+export type OrientacionPlan = {
+  orientado_id: string;
+  metas: string | null;
+  carreras_interes: string | null;
+  universidades_interes: string | null;
+  proximos_pasos: string | null;
+  actualizado_por: string | null;
+  updated_at: string;
+};
+
+export type OrientacionNota = {
+  id: string;
+  orientado_id: string;
+  contenido: string;
+  creado_por: string;
+  created_at: string;
+};
+
+export type OrientacionRecurso = {
+  id: string;
+  coach_id: string;
+  orientado_id: string | null;
+  titulo: string;
+  tipo: "archivo" | "enlace";
+  storage_path: string | null;
+  nombre_archivo: string | null;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  url: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+// ============================================================
+// Psicopedagogía
+// ============================================================
+export type PsicopedagogiaCaso = {
+  id: string;
+  profesional_id: string;
+  alumno_id: string | null;
+  nombre: string;
+  motivo: string | null;
+  activo: boolean;
+  created_at: string;
+};
+
+export type PsicopedagogiaSesion = {
+  id: string;
+  caso_id: string;
+  fecha: string;
+  hora: string | null;
+  estado: EstadoSesion;
+  nota: string | null;
+  reagendada_a_id: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type PsicopedagogiaNota = {
+  id: string;
+  caso_id: string;
+  contenido: string;
   creado_por: string;
   created_at: string;
 };

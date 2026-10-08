@@ -6,6 +6,8 @@ export const AVATARES_BUCKET = "avatares";
 export const MATERIA_BANNERS_BUCKET = "materia-banners";
 export const PACIENTE_DOCUMENTOS_BUCKET = "paciente-documentos";
 export const FORO_BUCKET = "foro-adjuntos";
+export const ORIENTACION_TESTS_BUCKET = "orientacion-tests";
+export const ORIENTACION_RECURSOS_BUCKET = "orientacion-recursos";
 
 export function formatBytes(bytes: number | null) {
   if (!bytes) return "";
