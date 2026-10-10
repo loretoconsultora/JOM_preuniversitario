@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { Materia, Profile } from "@/types/database";
 import { DocenteMateriasEditor } from "@/components/docente-materias-editor";
+import { NuevaMateriaForm } from "@/components/nueva-materia-form";
 
 export default async function DocentesPage({
   searchParams,
@@ -44,6 +45,13 @@ export default async function DocentesPage({
           </Link>
         )}
       </div>
+
+      {profile.role === "docente" && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold">Materias</p>
+          <NuevaMateriaForm />
+        </div>
+      )}
 
       {nuevo_correo && nueva_password && (
         <div className="glass-strong flex items-start gap-3 rounded-2xl border border-jom-yellow p-5">

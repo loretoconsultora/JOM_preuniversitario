@@ -4,7 +4,10 @@ import { requireTerapeuta } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { SesionQuickActions } from "@/components/sesion-quick-actions";
 import { DescargarReportePDF } from "@/components/descargar-reporte-pdf";
-import type { EstadoSesion, Paciente } from "@/types/database";
+import { HomoclaveLeyenda } from "@/components/homoclave-leyenda";
+import { ResumenHomoclaves } from "@/components/resumen-homoclaves";
+import { calcularRangoPeriodo, contarPorHomoclave, type PeriodoPreset } from "@/lib/estado-sesion";
+import type { EstadoSesion, Homoclave, Paciente } from "@/types/database";
 
 function AvatarPaciente({ url, size = "h-8 w-8" }: { url: string | null | undefined; size?: string }) {
   return (
@@ -28,6 +31,7 @@ type SesionConPaciente = {
   hora: string | null;
   estado: EstadoSesion;
   nota: string | null;
+  homoclave: Homoclave | null;
   pacientes: { nombre: string } | null;
 };
 
@@ -80,6 +84,7 @@ function Grupo({
                 sesionId={s.id}
                 estadoInicial={s.estado}
                 notaInicial={s.nota}
+                homoclaveInicial={s.homoclave}
                 accionable={s.fecha <= hoy}
               />
             </div>
@@ -93,11 +98,13 @@ function Grupo({
 export default async function AsistenciaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string }>;
+  searchParams: Promise<{ vista?: string; periodo?: string }>;
 }) {
   const profile = await requireTerapeuta();
-  const { vista: vistaParam } = await searchParams;
+  const { vista: vistaParam, periodo: periodoParam } = await searchParams;
   const vista = vistaParam === "paciente" ? "paciente" : "calendario";
+  const periodo: PeriodoPreset =
+    periodoParam === "semana" || periodoParam === "quincena" ? periodoParam : "mes";
   const supabase = await createClient();
 
   const ahora = new Date();
@@ -115,7 +122,7 @@ export default async function AsistenciaPage({
   const [{ data: sesiones, error }, { data: pacientes }] = await Promise.all([
     supabase
       .from("paciente_sesiones")
-      .select("id, paciente_id, fecha, hora, estado, nota, pacientes(nombre)")
+      .select("id, paciente_id, fecha, hora, estado, nota, homoclave, pacientes(nombre)")
       .order("fecha")
       .order("hora"),
     supabase.from("pacientes").select("*").order("nombre"),
@@ -159,6 +166,21 @@ export default async function AsistenciaPage({
     { programadas: 0, completadas: 0, reprogramadas: 0, canceladas: 0 }
   );
 
+  const rangoPeriodo = calcularRangoPeriodo(periodo, ahora);
+  const filasHomoclaves = pacientesList
+    .map((p) => ({
+      nombre: p.nombre,
+      ...contarPorHomoclave(
+        sesionesList.filter((s) => s.paciente_id === p.id && s.fecha >= rangoPeriodo.inicio && s.fecha <= rangoPeriodo.fin)
+      ),
+    }))
+    .filter((f) => f.SR + f.CNA + f.CT + f.SC > 0);
+  const totalesHomoclaves = filasHomoclaves.reduce(
+    (acc, f) => ({ SR: acc.SR + f.SR, CNA: acc.CNA + f.CNA, CT: acc.CT + f.CT, SC: acc.SC + f.SC }),
+    { SR: 0, CNA: 0, CT: 0, SC: 0 }
+  );
+  const hrefParaPeriodo = (p: PeriodoPreset) => `/portal/asistencia?vista=${vista}&periodo=${p}`;
+
   const tabClass = (activo: boolean) =>
     `rounded-full px-4 py-2 text-sm font-medium transition-colors ${
       activo ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink" : "glass hover:opacity-80"
@@ -170,6 +192,17 @@ export default async function AsistenciaPage({
         <h1 className="text-2xl font-semibold">Asistencia</h1>
         <p className="text-muted text-sm">Agenda y control de asistencia de todos tus pacientes</p>
       </div>
+
+      <HomoclaveLeyenda />
+
+      <ResumenHomoclaves
+        profesional={profile.nombre_completo}
+        periodoActual={periodo}
+        periodoLabel={rangoPeriodo.label}
+        hrefParaPeriodo={hrefParaPeriodo}
+        filas={filasHomoclaves}
+        totales={totalesHomoclaves}
+      />
 
       <div className="flex flex-col gap-3">
         <p className="text-sm font-semibold">Resumen del mes ({mesLabelCapitalizado})</p>

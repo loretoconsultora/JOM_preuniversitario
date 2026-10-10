@@ -4,6 +4,9 @@ import { requireCoachVocacionalODirectora } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AlumnoSelector } from "@/components/alumno-selector";
 import { OrientadoQuickActions } from "@/components/orientado-quick-actions";
+import { HomoclaveLeyenda } from "@/components/homoclave-leyenda";
+import { ResumenHomoclaves } from "@/components/resumen-homoclaves";
+import { calcularRangoPeriodo, contarPorHomoclave, type PeriodoPreset } from "@/lib/estado-sesion";
 import type { Orientado, OrientacionSesion } from "@/types/database";
 
 function formatFecha(fecha: string) {
@@ -116,7 +119,13 @@ function Grupo({
                 </div>
               </div>
               {esCoach ? (
-                <OrientadoQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable={s.fecha <= hoy} />
+                <OrientadoQuickActions
+                  sesionId={s.id}
+                  estadoInicial={s.estado}
+                  notaInicial={s.nota}
+                  homoclaveInicial={s.homoclave}
+                  accionable={s.fecha <= hoy}
+                />
               ) : (
                 <span className="text-muted w-fit rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-medium dark:bg-white/10">{s.estado}</span>
               )}
@@ -131,12 +140,14 @@ function Grupo({
 export default async function AsistenciaOrientacionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; alumno?: string }>;
+  searchParams: Promise<{ vista?: string; alumno?: string; periodo?: string }>;
 }) {
   const profile = await requireCoachVocacionalODirectora();
   const esCoach = profile.role === "coach_vocacional";
-  const { vista: vistaParam, alumno: alumnoParam } = await searchParams;
+  const { vista: vistaParam, alumno: alumnoParam, periodo: periodoParam } = await searchParams;
   const vista = vistaParam === "alumno" ? "alumno" : "calendario";
+  const periodo: PeriodoPreset =
+    periodoParam === "semana" || periodoParam === "quincena" ? periodoParam : "mes";
   const supabase = await createClient();
 
   const [{ data: orientados }, { data: sesiones }] = await Promise.all([
@@ -169,6 +180,21 @@ export default async function AsistenciaOrientacionPage({
     ...calcularStats(sesionesList.filter((s) => s.orientado_id === o.id), hoy),
   }));
 
+  const rangoPeriodo = calcularRangoPeriodo(periodo, ahora);
+  const filasHomoclaves = orientadosList
+    .map((o) => ({
+      nombre: o.nombre,
+      ...contarPorHomoclave(
+        sesionesList.filter((s) => s.orientado_id === o.id && s.fecha >= rangoPeriodo.inicio && s.fecha <= rangoPeriodo.fin)
+      ),
+    }))
+    .filter((f) => f.SR + f.CNA + f.CT + f.SC > 0);
+  const totalesHomoclaves = filasHomoclaves.reduce(
+    (acc, f) => ({ SR: acc.SR + f.SR, CNA: acc.CNA + f.CNA, CT: acc.CT + f.CT, SC: acc.SC + f.SC }),
+    { SR: 0, CNA: 0, CT: 0, SC: 0 }
+  );
+  const hrefParaPeriodo = (p: PeriodoPreset) => `/portal/asistencia-orientacion?vista=${vista}&periodo=${p}`;
+
   const citasPorConfirmar = orientadoId
     ? sesionesList
         .filter((s) => s.orientado_id === orientadoId && s.estado === "pendiente" && s.fecha <= hoy)
@@ -192,6 +218,19 @@ export default async function AsistenciaOrientacionPage({
         <h1 className="text-2xl font-semibold">Asistencia</h1>
         <p className="text-muted text-sm">Control de asistencia a sesiones de orientación vocacional</p>
       </div>
+
+      <HomoclaveLeyenda />
+
+      {esCoach && (
+        <ResumenHomoclaves
+          profesional={profile.nombre_completo}
+          periodoActual={periodo}
+          periodoLabel={rangoPeriodo.label}
+          hrefParaPeriodo={hrefParaPeriodo}
+          filas={filasHomoclaves}
+          totales={totalesHomoclaves}
+        />
+      )}
 
       <div className="flex gap-1.5">
         <Link href="/portal/asistencia-orientacion?vista=calendario" className={tabClass(vista === "calendario")}>
@@ -265,7 +304,13 @@ export default async function AsistenciaOrientacionPage({
                           Cita del {formatFecha(s.fecha)}
                           {s.hora && ` · ${s.hora.slice(0, 5)}`} — pendiente por confirmar
                         </p>
-                        <OrientadoQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable />
+                        <OrientadoQuickActions
+                          sesionId={s.id}
+                          estadoInicial={s.estado}
+                          notaInicial={s.nota}
+                          homoclaveInicial={s.homoclave}
+                          accionable
+                        />
                       </div>
                     ))}
                   </div>

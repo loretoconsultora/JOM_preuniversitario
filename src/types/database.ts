@@ -259,6 +259,13 @@ export type PacienteSalud = {
 
 export type EstadoSesion = "pendiente" | "asistio" | "no_asistio" | "reagendada";
 
+// Códigos de facturación (acuerdo de prestación de servicios): SR sesión
+// realizada, CNA cancelación no anticipada (del paciente/orientado/caso,
+// se factura), CT cancelación de quien da la sesión (no se factura, genera
+// una SC), SC sesión compensatoria (costo $0). Null = aún no aplica
+// (pendiente) o reagendada con aviso normal, sin código de facturación.
+export type Homoclave = "SR" | "CNA" | "CT" | "SC";
+
 export type PacienteSesion = {
   id: string;
   paciente_id: string;
@@ -266,6 +273,7 @@ export type PacienteSesion = {
   hora: string | null;
   estado: EstadoSesion;
   nota: string | null;
+  homoclave: Homoclave | null;
   reagendada_a_id: string | null;
   creado_por: string;
   created_at: string;
@@ -291,6 +299,7 @@ export type OrientacionSesion = {
   hora: string | null;
   estado: EstadoSesion;
   nota: string | null;
+  homoclave: Homoclave | null;
   reagendada_a_id: string | null;
   creado_por: string;
   created_at: string;
@@ -413,6 +422,7 @@ export type PsicopedagogiaSesion = {
   hora: string | null;
   estado: EstadoSesion;
   nota: string | null;
+  homoclave: Homoclave | null;
   reagendada_a_id: string | null;
   creado_por: string;
   created_at: string;

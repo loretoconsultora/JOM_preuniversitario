@@ -51,6 +51,34 @@ export async function crearDocente(formData: FormData): Promise<ActionResult<{ e
   }
 }
 
+export async function crearMateria(nombre: string): Promise<ActionResult<{ id: string }>> {
+  const profile = await requireDocente();
+  const nombreLimpio = nombre.trim();
+  if (!nombreLimpio) return actionError("El nombre de la materia es obligatorio.");
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.from("materias").insert({ nombre: nombreLimpio }).select("id").single();
+    if (error) {
+      if (error.message.includes("duplicate") || error.message.includes("unique")) {
+        return actionError("Ya existe una materia con ese nombre.");
+      }
+      return actionError(error.message);
+    }
+
+    const { error: eAsig } = await admin
+      .from("materia_docentes")
+      .insert({ materia_id: data.id, docente_id: profile.id });
+    if (eAsig) return actionError(eAsig.message);
+
+    revalidatePath("/portal/docentes");
+    return actionOk({ id: data.id });
+  } catch (e) {
+    console.error("crearMateria:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
 export async function actualizarMateriasDocente(docenteId: string, materiaIds: string[]): Promise<ActionResult> {
   await requireDocente();
 

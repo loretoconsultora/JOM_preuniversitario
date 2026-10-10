@@ -147,11 +147,13 @@ export async function crearAgendamientoPsicopedagogia(casoId: string, input: Age
 
 export async function marcarAsistenciaPsicopedagogia(sesionId: string, estado: "asistio" | "no_asistio"): Promise<ActionResult> {
   await requirePsicopedagogia();
+  const homoclave = estado === "asistio" ? "SR" : "CNA";
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("psicopedagogia_sesiones").update({ estado }).eq("id", sesionId);
+    const { error } = await supabase.from("psicopedagogia_sesiones").update({ estado, homoclave }).eq("id", sesionId);
     if (error) return actionError(error.message);
     revalidatePath("/portal/psicopedagogia");
+    revalidatePath("/portal/asistencia-psicopedagogia");
     return actionOk({});
   } catch (e) {
     console.error("marcarAsistenciaPsicopedagogia:", e);
@@ -187,7 +189,12 @@ export async function guardarNotaSesionPsicopedagogia(sesionId: string, nota: st
   }
 }
 
-export async function reagendarSesionPsicopedagogia(sesionId: string, nuevaFecha: string, nuevaHora: string): Promise<ActionResult> {
+export async function reagendarSesionPsicopedagogia(
+  sesionId: string,
+  nuevaFecha: string,
+  nuevaHora: string,
+  motivo: "CNA" | "CT" | null = null
+): Promise<ActionResult> {
   await requirePsicopedagogia();
   if (!nuevaFecha) return actionError("Indica la nueva fecha.");
 
@@ -207,6 +214,7 @@ export async function reagendarSesionPsicopedagogia(sesionId: string, nuevaFecha
         fecha: nuevaFecha,
         hora: nuevaHora || null,
         creado_por: sesion.creado_por,
+        homoclave: motivo === "CT" ? "SC" : null,
       })
       .select("id")
       .single();
@@ -214,11 +222,12 @@ export async function reagendarSesionPsicopedagogia(sesionId: string, nuevaFecha
 
     const { error: eUpd } = await supabase
       .from("psicopedagogia_sesiones")
-      .update({ estado: "reagendada", reagendada_a_id: nueva.id })
+      .update({ estado: "reagendada", reagendada_a_id: nueva.id, homoclave: motivo })
       .eq("id", sesionId);
     if (eUpd) return actionError(eUpd.message);
 
     revalidatePath("/portal/psicopedagogia");
+    revalidatePath("/portal/asistencia-psicopedagogia");
     return actionOk({});
   } catch (e) {
     console.error("reagendarSesionPsicopedagogia:", e);

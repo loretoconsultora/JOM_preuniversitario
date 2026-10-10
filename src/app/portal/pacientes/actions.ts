@@ -278,9 +278,11 @@ export async function crearAgendamiento(pacienteId: string, input: AgendamientoI
 
 export async function marcarAsistencia(sesionId: string, estado: "asistio" | "no_asistio"): Promise<ActionResult> {
   await requireTerapeuta();
+  // SR si asistió (se factura), CNA si no asistió (falta sin aviso, se factura igual).
+  const homoclave = estado === "asistio" ? "SR" : "CNA";
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("paciente_sesiones").update({ estado }).eq("id", sesionId);
+    const { error } = await supabase.from("paciente_sesiones").update({ estado, homoclave }).eq("id", sesionId);
     if (error) return actionError(error.message);
     revalidatePath("/portal/asistencia");
     revalidatePath("/portal/pacientes");
@@ -326,7 +328,12 @@ export async function guardarNotaSesion(sesionId: string, nota: string): Promise
   }
 }
 
-export async function reagendarSesion(sesionId: string, nuevaFecha: string, nuevaHora: string): Promise<ActionResult> {
+export async function reagendarSesion(
+  sesionId: string,
+  nuevaFecha: string,
+  nuevaHora: string,
+  motivo: "CNA" | "CT" | null = null
+): Promise<ActionResult> {
   await requireTerapeuta();
   if (!nuevaFecha) return actionError("Indica la nueva fecha.");
 
@@ -339,6 +346,8 @@ export async function reagendarSesion(sesionId: string, nuevaFecha: string, nuev
       .single();
     if (eSel || !sesion) return actionError("Sesión no encontrada.");
 
+    // Si la reagendó quien da la sesión (CT), la nueva sesión nace como
+    // compensatoria (SC, $0) sin que haya que etiquetarla a mano.
     const { data: nueva, error: eIns } = await supabase
       .from("paciente_sesiones")
       .insert({
@@ -346,6 +355,7 @@ export async function reagendarSesion(sesionId: string, nuevaFecha: string, nuev
         fecha: nuevaFecha,
         hora: nuevaHora || null,
         creado_por: sesion.creado_por,
+        homoclave: motivo === "CT" ? "SC" : null,
       })
       .select("id")
       .single();
@@ -353,7 +363,7 @@ export async function reagendarSesion(sesionId: string, nuevaFecha: string, nuev
 
     const { error: eUpd } = await supabase
       .from("paciente_sesiones")
-      .update({ estado: "reagendada", reagendada_a_id: nueva.id })
+      .update({ estado: "reagendada", reagendada_a_id: nueva.id, homoclave: motivo })
       .eq("id", sesionId);
     if (eUpd) return actionError(eUpd.message);
 

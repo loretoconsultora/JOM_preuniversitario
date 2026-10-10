@@ -9,31 +9,35 @@ import {
   reagendarSesionPsicopedagogia,
   eliminarSesionPsicopedagogia,
 } from "@/app/portal/psicopedagogia/actions";
-import type { EstadoSesion } from "@/types/database";
-import { ESTADO_LABEL, ESTADO_CLASS } from "@/lib/estado-sesion";
+import type { EstadoSesion, Homoclave } from "@/types/database";
+import { ESTADO_LABEL, ESTADO_CLASS, HOMOCLAVE_LABEL, HOMOCLAVE_CLASS } from "@/lib/estado-sesion";
 import { RichTextEditor } from "@/components/rich-text-editor";
 
 export function PsicopedagogiaQuickActions({
   sesionId,
   estadoInicial,
   notaInicial,
+  homoclaveInicial = null,
   accionable,
   permitirEliminar = false,
 }: {
   sesionId: string;
   estadoInicial: EstadoSesion;
   notaInicial: string | null;
+  homoclaveInicial?: Homoclave | null;
   accionable: boolean;
   permitirEliminar?: boolean;
 }) {
   const router = useRouter();
   const [estado, setEstado] = useState<EstadoSesion>(estadoInicial);
+  const [homoclave, setHomoclave] = useState<Homoclave | null>(homoclaveInicial);
   const [nota, setNota] = useState(notaInicial ?? "");
   const [notaBorrador, setNotaBorrador] = useState(notaInicial ?? "");
   const [mostrarNota, setMostrarNota] = useState(false);
   const [mostrarReagendar, setMostrarReagendar] = useState(false);
   const [nuevaFecha, setNuevaFecha] = useState("");
   const [nuevaHora, setNuevaHora] = useState("16:00");
+  const [motivoReagendo, setMotivoReagendo] = useState<"" | "CNA" | "CT">("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +51,7 @@ export function PsicopedagogiaQuickActions({
         return;
       }
       setEstado(nuevoEstado);
+      setHomoclave(nuevoEstado === "asistio" ? "SR" : "CNA");
       if (nuevoEstado === "asistio") setMostrarNota(true);
       router.refresh();
     } catch {
@@ -83,12 +88,13 @@ export function PsicopedagogiaQuickActions({
     setCargando(true);
     setError(null);
     try {
-      const resultado = await reagendarSesionPsicopedagogia(sesionId, nuevaFecha, nuevaHora);
+      const resultado = await reagendarSesionPsicopedagogia(sesionId, nuevaFecha, nuevaHora, motivoReagendo || null);
       if (!resultado.ok) {
         setError(resultado.error);
         return;
       }
       setEstado("reagendada");
+      setHomoclave(motivoReagendo || null);
       setMostrarReagendar(false);
       router.refresh();
     } catch {
@@ -122,6 +128,14 @@ export function PsicopedagogiaQuickActions({
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ESTADO_CLASS[estado]}`}>
           {ESTADO_LABEL[estado]}
         </span>
+        {homoclave && (
+          <span
+            title={HOMOCLAVE_LABEL[homoclave]}
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${HOMOCLAVE_CLASS[homoclave]}`}
+          >
+            {homoclave}
+          </span>
+        )}
 
         {accionable && estado === "pendiente" && (
           <>
@@ -207,24 +221,35 @@ export function PsicopedagogiaQuickActions({
       )}
 
       {mostrarReagendar && (
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="date"
-            value={nuevaFecha}
-            onChange={(e) => setNuevaFecha(e.target.value)}
-            className="glass rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jom-pink"
-          />
-          <input
-            type="time"
-            value={nuevaHora}
-            onChange={(e) => setNuevaHora(e.target.value)}
-            className="glass w-28 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jom-pink"
-          />
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={nuevaFecha}
+              onChange={(e) => setNuevaFecha(e.target.value)}
+              className="glass rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jom-pink"
+            />
+            <input
+              type="time"
+              value={nuevaHora}
+              onChange={(e) => setNuevaHora(e.target.value)}
+              className="glass w-28 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jom-pink"
+            />
+          </div>
+          <select
+            value={motivoReagendo}
+            onChange={(e) => setMotivoReagendo(e.target.value as "" | "CNA" | "CT")}
+            className="glass w-fit rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jom-pink"
+          >
+            <option value="">Reprogramación normal (con aviso, sin cargo)</option>
+            <option value="CNA">Canceló tarde el caso (CNA, se factura)</option>
+            <option value="CT">Cancelé yo tarde (CT, no se factura, genera sesión compensatoria)</option>
+          </select>
           <button
             type="button"
             onClick={confirmarReagendo}
             disabled={cargando}
-            className="rounded-full bg-jom-ink px-3 py-1.5 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
+            className="w-fit rounded-full bg-jom-ink px-3 py-1.5 text-xs font-semibold text-jom-white transition-opacity hover:opacity-90 disabled:opacity-60 dark:bg-jom-white dark:text-jom-ink"
           >
             Confirmar
           </button>

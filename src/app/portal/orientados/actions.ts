@@ -151,11 +151,13 @@ export async function crearAgendamientoOrientacion(orientadoId: string, input: A
 
 export async function marcarAsistenciaOrientacion(sesionId: string, estado: "asistio" | "no_asistio"): Promise<ActionResult> {
   await requireCoachVocacional();
+  const homoclave = estado === "asistio" ? "SR" : "CNA";
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("orientacion_sesiones").update({ estado }).eq("id", sesionId);
+    const { error } = await supabase.from("orientacion_sesiones").update({ estado, homoclave }).eq("id", sesionId);
     if (error) return actionError(error.message);
     revalidatePath("/portal/orientados");
+    revalidatePath("/portal/asistencia-orientacion");
     return actionOk({});
   } catch (e) {
     console.error("marcarAsistenciaOrientacion:", e);
@@ -191,7 +193,12 @@ export async function guardarNotaSesionOrientacion(sesionId: string, nota: strin
   }
 }
 
-export async function reagendarSesionOrientacion(sesionId: string, nuevaFecha: string, nuevaHora: string): Promise<ActionResult> {
+export async function reagendarSesionOrientacion(
+  sesionId: string,
+  nuevaFecha: string,
+  nuevaHora: string,
+  motivo: "CNA" | "CT" | null = null
+): Promise<ActionResult> {
   await requireCoachVocacional();
   if (!nuevaFecha) return actionError("Indica la nueva fecha.");
 
@@ -211,6 +218,7 @@ export async function reagendarSesionOrientacion(sesionId: string, nuevaFecha: s
         fecha: nuevaFecha,
         hora: nuevaHora || null,
         creado_por: sesion.creado_por,
+        homoclave: motivo === "CT" ? "SC" : null,
       })
       .select("id")
       .single();
@@ -218,11 +226,12 @@ export async function reagendarSesionOrientacion(sesionId: string, nuevaFecha: s
 
     const { error: eUpd } = await supabase
       .from("orientacion_sesiones")
-      .update({ estado: "reagendada", reagendada_a_id: nueva.id })
+      .update({ estado: "reagendada", reagendada_a_id: nueva.id, homoclave: motivo })
       .eq("id", sesionId);
     if (eUpd) return actionError(eUpd.message);
 
     revalidatePath("/portal/orientados");
+    revalidatePath("/portal/asistencia-orientacion");
     return actionOk({});
   } catch (e) {
     console.error("reagendarSesionOrientacion:", e);
