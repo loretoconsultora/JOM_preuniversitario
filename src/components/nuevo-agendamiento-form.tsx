@@ -4,8 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, AlertCircle } from "lucide-react";
 import { crearAgendamiento } from "@/app/portal/pacientes/actions";
+import type { Homoclave } from "@/types/database";
 
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+type SesionBorrador = { fecha: string; hora: string; resultado: Homoclave | "" };
 
 export function NuevoAgendamientoForm({ pacienteId }: { pacienteId: string }) {
   const router = useRouter();
@@ -15,14 +18,14 @@ export function NuevoAgendamientoForm({ pacienteId }: { pacienteId: string }) {
   const [hora, setHora] = useState("16:00");
   const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().slice(0, 10));
   const [fechaFin, setFechaFin] = useState("");
-  const [sesiones, setSesiones] = useState([{ fecha: "", hora: "16:00" }]);
+  const [sesiones, setSesiones] = useState<SesionBorrador[]>([{ fecha: "", hora: "16:00", resultado: "" }]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const inputClass =
     "glass rounded-xl px-3.5 py-2 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-jom-pink";
 
-  function actualizarSesion(index: number, campo: "fecha" | "hora", valor: string) {
+  function actualizarSesion(index: number, campo: "fecha" | "hora" | "resultado", valor: string) {
     setSesiones((prev) => prev.map((s, i) => (i === index ? { ...s, [campo]: valor } : s)));
   }
 
@@ -32,13 +35,16 @@ export function NuevoAgendamientoForm({ pacienteId }: { pacienteId: string }) {
     try {
       const resultado = recurrente
         ? await crearAgendamiento(pacienteId, { recurrente: true, diaSemana, hora, fechaInicio, fechaFin: fechaFin || null })
-        : await crearAgendamiento(pacienteId, { recurrente: false, sesiones });
+        : await crearAgendamiento(pacienteId, {
+            recurrente: false,
+            sesiones: sesiones.map((s) => ({ fecha: s.fecha, hora: s.hora, resultado: s.resultado || null })),
+          });
       if (!resultado.ok) {
         setError(resultado.error);
         return;
       }
       setOpen(false);
-      setSesiones([{ fecha: "", hora: "16:00" }]);
+      setSesiones([{ fecha: "", hora: "16:00", resultado: "" }]);
       router.refresh();
     } catch {
       setError("No se pudo crear el agendamiento. Revisa tu conexión e intenta de nuevo.");
@@ -118,34 +124,50 @@ export function NuevoAgendamientoForm({ pacienteId }: { pacienteId: string }) {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <p className="text-muted text-xs">Agrega cada sesión con su propia fecha y hora.</p>
+          <p className="text-muted text-xs">
+            Agrega cada sesión con su propia fecha y hora. También sirve para registrar sesiones de fechas pasadas que
+            se te hayan pasado anotar: puedes indicar directamente qué pasó con ella.
+          </p>
           {sesiones.map((s, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                type="date"
-                value={s.fecha}
-                onChange={(e) => actualizarSesion(i, "fecha", e.target.value)}
-                className={`${inputClass} flex-1`}
-              />
-              <input
-                type="time"
-                value={s.hora}
-                onChange={(e) => actualizarSesion(i, "hora", e.target.value)}
-                className={`${inputClass} w-32`}
-              />
-              <button
-                type="button"
-                onClick={() => setSesiones((prev) => prev.filter((_, j) => j !== i))}
-                aria-label="Quitar sesión"
-                className="text-muted shrink-0 rounded-full p-1.5 hover:text-jom-ink"
+            <div key={i} className="glass flex flex-col gap-2 rounded-xl p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={s.fecha}
+                  onChange={(e) => actualizarSesion(i, "fecha", e.target.value)}
+                  className={`${inputClass} flex-1`}
+                />
+                <input
+                  type="time"
+                  value={s.hora}
+                  onChange={(e) => actualizarSesion(i, "hora", e.target.value)}
+                  className={`${inputClass} w-32`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSesiones((prev) => prev.filter((_, j) => j !== i))}
+                  aria-label="Quitar sesión"
+                  className="text-muted shrink-0 rounded-full p-1.5 hover:text-jom-ink"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              <select
+                value={s.resultado}
+                onChange={(e) => actualizarSesion(i, "resultado", e.target.value)}
+                className={inputClass}
               >
-                <Trash2 size={14} />
-              </button>
+                <option value="">Programada (aún no sucede)</option>
+                <option value="SR">Se realizó (SR)</option>
+                <option value="SC">Compensatoria realizada, $0 (SC)</option>
+                <option value="CNA">Canceló/faltó el paciente (CNA, se factura)</option>
+                <option value="CT">Cancelé yo (CT, no se factura)</option>
+              </select>
             </div>
           ))}
           <button
             type="button"
-            onClick={() => setSesiones((prev) => [...prev, { fecha: "", hora: "16:00" }])}
+            onClick={() => setSesiones((prev) => [...prev, { fecha: "", hora: "16:00", resultado: "" }])}
             className="text-muted w-fit text-xs underline underline-offset-2 hover:text-fg"
           >
             + Agregar sesión

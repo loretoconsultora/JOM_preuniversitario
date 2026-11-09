@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requirePsicopedagogia } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { actionError, actionOk, ERROR_INESPERADO, type ActionResult } from "@/lib/action-result";
+import { resultadoAEstadoHomoclave } from "@/lib/estado-sesion";
+import type { Homoclave } from "@/types/database";
 
 export async function crearCasoPsicopedagogia(formData: FormData): Promise<ActionResult<{ id: string }>> {
   const profile = await requirePsicopedagogia();
@@ -95,12 +97,12 @@ export async function eliminarCasoPsicopedagogia(id: string): Promise<ActionResu
 
 type AgendamientoInput =
   | { recurrente: true; diaSemana: number; hora: string; fechaInicio: string; fechaFin: string | null }
-  | { recurrente: false; sesiones: { fecha: string; hora: string }[] };
+  | { recurrente: false; sesiones: { fecha: string; hora: string; resultado?: Homoclave | null }[] };
 
 export async function crearAgendamientoPsicopedagogia(casoId: string, input: AgendamientoInput): Promise<ActionResult> {
   const profile = await requirePsicopedagogia();
 
-  let filas: { fecha: string; hora: string | null }[] = [];
+  let filas: { fecha: string; hora: string | null; resultado?: Homoclave | null }[] = [];
 
   if (input.recurrente) {
     if (!input.hora) return actionError("Indica la hora de la sesión.");
@@ -120,7 +122,9 @@ export async function crearAgendamientoPsicopedagogia(casoId: string, input: Age
       guard++;
     }
   } else {
-    filas = input.sesiones.filter((s) => s.fecha).map((s) => ({ fecha: s.fecha, hora: s.hora || null }));
+    filas = input.sesiones
+      .filter((s) => s.fecha)
+      .map((s) => ({ fecha: s.fecha, hora: s.hora || null, resultado: s.resultado || null }));
   }
 
   if (filas.length === 0) return actionError("Agrega al menos una sesión.");
@@ -130,13 +134,18 @@ export async function crearAgendamientoPsicopedagogia(casoId: string, input: Age
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("psicopedagogia_sesiones").insert(
-      filas.map((f) => ({
-        caso_id: casoId,
-        fecha: f.fecha,
-        hora: f.hora,
-        creado_por: profile.id,
-        serie_id: serieId,
-      }))
+      filas.map((f) => {
+        const { estado, homoclave } = resultadoAEstadoHomoclave(f.resultado);
+        return {
+          caso_id: casoId,
+          fecha: f.fecha,
+          hora: f.hora,
+          creado_por: profile.id,
+          serie_id: serieId,
+          estado,
+          homoclave,
+        };
+      })
     );
     if (error) return actionError(error.message);
 

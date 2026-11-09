@@ -5,7 +5,8 @@ import { requireTerapeuta, requireTerapeutaODirectora } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PACIENTE_DOCUMENTOS_BUCKET } from "@/lib/storage";
 import { actionError, actionOk, ERROR_INESPERADO, type ActionResult } from "@/lib/action-result";
-import type { AsistenciaSaludTipo } from "@/types/database";
+import { resultadoAEstadoHomoclave } from "@/lib/estado-sesion";
+import type { AsistenciaSaludTipo, Homoclave } from "@/types/database";
 
 export async function crearPaciente(formData: FormData): Promise<ActionResult<{ id: string }>> {
   const profile = await requireTerapeuta();
@@ -225,12 +226,12 @@ export async function eliminarPaciente(id: string): Promise<ActionResult> {
 
 type AgendamientoInput =
   | { recurrente: true; diaSemana: number; hora: string; fechaInicio: string; fechaFin: string | null }
-  | { recurrente: false; sesiones: { fecha: string; hora: string }[] };
+  | { recurrente: false; sesiones: { fecha: string; hora: string; resultado?: Homoclave | null }[] };
 
 export async function crearAgendamiento(pacienteId: string, input: AgendamientoInput): Promise<ActionResult> {
   const profile = await requireTerapeuta();
 
-  let filas: { fecha: string; hora: string | null }[] = [];
+  let filas: { fecha: string; hora: string | null; resultado?: Homoclave | null }[] = [];
 
   if (input.recurrente) {
     if (!input.hora) return actionError("Indica la hora de la sesión.");
@@ -250,7 +251,9 @@ export async function crearAgendamiento(pacienteId: string, input: AgendamientoI
       guard++;
     }
   } else {
-    filas = input.sesiones.filter((s) => s.fecha).map((s) => ({ fecha: s.fecha, hora: s.hora || null }));
+    filas = input.sesiones
+      .filter((s) => s.fecha)
+      .map((s) => ({ fecha: s.fecha, hora: s.hora || null, resultado: s.resultado || null }));
   }
 
   if (filas.length === 0) return actionError("Agrega al menos una sesión.");
@@ -263,13 +266,18 @@ export async function crearAgendamiento(pacienteId: string, input: AgendamientoI
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("paciente_sesiones").insert(
-      filas.map((f) => ({
-        paciente_id: pacienteId,
-        fecha: f.fecha,
-        hora: f.hora,
-        creado_por: profile.id,
-        serie_id: serieId,
-      }))
+      filas.map((f) => {
+        const { estado, homoclave } = resultadoAEstadoHomoclave(f.resultado);
+        return {
+          paciente_id: pacienteId,
+          fecha: f.fecha,
+          hora: f.hora,
+          creado_por: profile.id,
+          serie_id: serieId,
+          estado,
+          homoclave,
+        };
+      })
     );
     if (error) return actionError(error.message);
 

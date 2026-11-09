@@ -53,6 +53,25 @@ export const HOMOCLAVE_CLASS: Record<Homoclave, string> = {
   SC: "bg-black/5 dark:bg-white/10 text-muted",
 };
 
+// Para registrar sesiones pasadas que se les fue anotar: al crear un
+// agendamiento personalizado, la terapeuta/profesional puede indicar de
+// una vez qué pasó con esa sesión, en lugar de crearla "pendiente" y
+// tener que volver después a marcarla.
+export function resultadoAEstadoHomoclave(resultado?: Homoclave | null): { estado: EstadoSesion; homoclave: Homoclave | null } {
+  switch (resultado) {
+    case "SR":
+      return { estado: "asistio", homoclave: "SR" };
+    case "SC":
+      return { estado: "asistio", homoclave: "SC" };
+    case "CNA":
+      return { estado: "no_asistio", homoclave: "CNA" };
+    case "CT":
+      return { estado: "no_asistio", homoclave: "CT" };
+    default:
+      return { estado: "pendiente", homoclave: null };
+  }
+}
+
 export function contarPorHomoclave(sesiones: { homoclave: Homoclave | null }[]) {
   return {
     SR: sesiones.filter((s) => s.homoclave === "SR").length,
