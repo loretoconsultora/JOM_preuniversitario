@@ -331,6 +331,21 @@ export async function marcarAsistencia(sesionId: string, estado: "asistio" | "no
   }
 }
 
+export async function marcarPagada(sesionId: string, pagada: boolean): Promise<ActionResult> {
+  await requireTerapeuta();
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("paciente_sesiones").update({ pagada }).eq("id", sesionId);
+    if (error) return actionError(error.message);
+    revalidatePath("/portal/asistencia");
+    revalidatePath("/portal/pacientes");
+    return actionOk({});
+  } catch (e) {
+    console.error("marcarPagada:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
 // Solo pensada para sesiones programadas/próximas (ver UI): elimina la fila
 // por completo, a diferencia de reagendarSesion que conserva el historial.
 export async function eliminarSesion(sesionId: string): Promise<ActionResult> {

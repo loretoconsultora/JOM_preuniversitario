@@ -9,9 +9,10 @@ import {
   reagendarSesionPsicopedagogia,
   eliminarSesionPsicopedagogia,
   eliminarSerieSesionesPsicopedagogia,
+  marcarPagadaPsicopedagogia,
 } from "@/app/portal/psicopedagogia/actions";
 import type { EstadoSesion, Homoclave } from "@/types/database";
-import { ESTADO_LABEL, ESTADO_CLASS, HOMOCLAVE_LABEL, HOMOCLAVE_CLASS } from "@/lib/estado-sesion";
+import { ESTADO_LABEL, ESTADO_CLASS, HOMOCLAVE_LABEL, HOMOCLAVE_CLASS, esFacturable } from "@/lib/estado-sesion";
 import { RichTextEditor } from "@/components/rich-text-editor";
 
 export function PsicopedagogiaQuickActions({
@@ -19,6 +20,7 @@ export function PsicopedagogiaQuickActions({
   estadoInicial,
   notaInicial,
   homoclaveInicial = null,
+  pagadaInicial = false,
   serieId = null,
   cantidadEnSerie = 0,
   accionable,
@@ -28,6 +30,7 @@ export function PsicopedagogiaQuickActions({
   estadoInicial: EstadoSesion;
   notaInicial: string | null;
   homoclaveInicial?: Homoclave | null;
+  pagadaInicial?: boolean;
   serieId?: string | null;
   cantidadEnSerie?: number;
   accionable: boolean;
@@ -36,6 +39,8 @@ export function PsicopedagogiaQuickActions({
   const router = useRouter();
   const [estado, setEstado] = useState<EstadoSesion>(estadoInicial);
   const [homoclave, setHomoclave] = useState<Homoclave | null>(homoclaveInicial);
+  const [pagada, setPagada] = useState(pagadaInicial);
+  const [cargandoPago, setCargandoPago] = useState(false);
   const [nota, setNota] = useState(notaInicial ?? "");
   const [notaBorrador, setNotaBorrador] = useState(notaInicial ?? "");
   const [mostrarNota, setMostrarNota] = useState(false);
@@ -151,6 +156,24 @@ export function PsicopedagogiaQuickActions({
     }
   }
 
+  async function togglePagada() {
+    const nuevoValor = !pagada;
+    setCargandoPago(true);
+    try {
+      const resultado = await marcarPagadaPsicopedagogia(sesionId, nuevoValor);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
+      setPagada(nuevoValor);
+      router.refresh();
+    } catch {
+      setError("No se pudo actualizar el pago. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setCargandoPago(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -164,6 +187,18 @@ export function PsicopedagogiaQuickActions({
           >
             {homoclave}
           </span>
+        )}
+        {esFacturable(homoclave) && (
+          <label className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1 text-xs font-medium dark:bg-white/10">
+            <input
+              type="checkbox"
+              checked={pagada}
+              onChange={togglePagada}
+              disabled={cargandoPago}
+              className="h-3.5 w-3.5 rounded accent-jom-ink"
+            />
+            {pagada ? "Pagada" : "Por pagar"}
+          </label>
         )}
 
         {accionable && estado === "pendiente" && (

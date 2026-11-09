@@ -6,7 +6,7 @@ import { SesionQuickActions } from "@/components/sesion-quick-actions";
 import { DescargarReportePDF } from "@/components/descargar-reporte-pdf";
 import { HomoclaveLeyenda } from "@/components/homoclave-leyenda";
 import { ResumenHomoclaves } from "@/components/resumen-homoclaves";
-import { calcularRangoPeriodo, contarPorHomoclave, type PeriodoPreset } from "@/lib/estado-sesion";
+import { calcularRangoPeriodo, contarPorHomoclave, contarPagos, type PeriodoPreset } from "@/lib/estado-sesion";
 import type { EstadoSesion, Homoclave, Paciente } from "@/types/database";
 
 function AvatarPaciente({ url, size = "h-8 w-8" }: { url: string | null | undefined; size?: string }) {
@@ -32,6 +32,7 @@ type SesionConPaciente = {
   estado: EstadoSesion;
   nota: string | null;
   homoclave: Homoclave | null;
+  pagada: boolean;
   pacientes: { nombre: string } | null;
 };
 
@@ -85,6 +86,7 @@ function Grupo({
                 estadoInicial={s.estado}
                 notaInicial={s.nota}
                 homoclaveInicial={s.homoclave}
+                pagadaInicial={s.pagada}
                 accionable={s.fecha <= hoy}
               />
             </div>
@@ -98,13 +100,13 @@ function Grupo({
 export default async function AsistenciaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; periodo?: string }>;
+  searchParams: Promise<{ vista?: string; periodo?: string; desde?: string; hasta?: string }>;
 }) {
   const profile = await requireTerapeuta();
-  const { vista: vistaParam, periodo: periodoParam } = await searchParams;
+  const { vista: vistaParam, periodo: periodoParam, desde, hasta } = await searchParams;
   const vista = vistaParam === "paciente" ? "paciente" : "calendario";
   const periodo: PeriodoPreset =
-    periodoParam === "semana" || periodoParam === "quincena" ? periodoParam : "mes";
+    periodoParam === "semana" || periodoParam === "quincena" || periodoParam === "personalizado" ? periodoParam : "mes";
   const supabase = await createClient();
 
   const ahora = new Date();
@@ -122,7 +124,7 @@ export default async function AsistenciaPage({
   const [{ data: sesiones, error }, { data: pacientes }] = await Promise.all([
     supabase
       .from("paciente_sesiones")
-      .select("id, paciente_id, fecha, hora, estado, nota, homoclave, pacientes(nombre)")
+      .select("id, paciente_id, fecha, hora, estado, nota, homoclave, pagada, pacientes(nombre)")
       .order("fecha")
       .order("hora"),
     supabase.from("pacientes").select("*").order("nombre"),
@@ -166,20 +168,26 @@ export default async function AsistenciaPage({
     { programadas: 0, completadas: 0, reprogramadas: 0, canceladas: 0 }
   );
 
-  const rangoPeriodo = calcularRangoPeriodo(periodo, ahora);
+  const rangoPeriodo = calcularRangoPeriodo(periodo, ahora, desde && hasta ? { desde, hasta } : undefined);
   const filasHomoclaves = pacientesList
-    .map((p) => ({
-      nombre: p.nombre,
-      ...contarPorHomoclave(
-        sesionesList.filter((s) => s.paciente_id === p.id && s.fecha >= rangoPeriodo.inicio && s.fecha <= rangoPeriodo.fin)
-      ),
-    }))
+    .map((p) => {
+      const delPacientePeriodo = sesionesList.filter(
+        (s) => s.paciente_id === p.id && s.fecha >= rangoPeriodo.inicio && s.fecha <= rangoPeriodo.fin
+      );
+      return { nombre: p.nombre, ...contarPorHomoclave(delPacientePeriodo), ...contarPagos(delPacientePeriodo) };
+    })
     .filter((f) => f.SR + f.CNA + f.CT + f.SC > 0);
   const totalesHomoclaves = filasHomoclaves.reduce(
-    (acc, f) => ({ SR: acc.SR + f.SR, CNA: acc.CNA + f.CNA, CT: acc.CT + f.CT, SC: acc.SC + f.SC }),
-    { SR: 0, CNA: 0, CT: 0, SC: 0 }
+    (acc, f) => ({
+      SR: acc.SR + f.SR,
+      CNA: acc.CNA + f.CNA,
+      CT: acc.CT + f.CT,
+      SC: acc.SC + f.SC,
+      pagadas: acc.pagadas + f.pagadas,
+      porPagar: acc.porPagar + f.porPagar,
+    }),
+    { SR: 0, CNA: 0, CT: 0, SC: 0, pagadas: 0, porPagar: 0 }
   );
-  const hrefParaPeriodo = (p: PeriodoPreset) => `/portal/asistencia?vista=${vista}&periodo=${p}`;
 
   const tabClass = (activo: boolean) =>
     `rounded-full px-4 py-2 text-sm font-medium transition-colors ${
@@ -199,7 +207,9 @@ export default async function AsistenciaPage({
         profesional={profile.nombre_completo}
         periodoActual={periodo}
         periodoLabel={rangoPeriodo.label}
-        hrefParaPeriodo={hrefParaPeriodo}
+        desdeActual={desde}
+        hastaActual={hasta}
+        basePath={`/portal/asistencia?vista=${vista}`}
         filas={filasHomoclaves}
         totales={totalesHomoclaves}
       />

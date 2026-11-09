@@ -81,15 +81,44 @@ export function contarPorHomoclave(sesiones: { homoclave: Homoclave | null }[]) 
   };
 }
 
-export type PeriodoPreset = "semana" | "quincena" | "mes";
+// Solo SR y CNA generan cobro (CT y SC son $0), así que solo esas dos
+// tienen sentido marcarlas como pagadas/por pagar.
+export function esFacturable(homoclave: Homoclave | null) {
+  return homoclave === "SR" || homoclave === "CNA";
+}
+
+export function contarPagos(sesiones: { homoclave: Homoclave | null; pagada: boolean }[]) {
+  const facturables = sesiones.filter((s) => esFacturable(s.homoclave));
+  return {
+    pagadas: facturables.filter((s) => s.pagada).length,
+    porPagar: facturables.filter((s) => !s.pagada).length,
+  };
+}
+
+export type PeriodoPreset = "semana" | "quincena" | "mes" | "personalizado";
 
 // Rango de fechas (inclusive, formato YYYY-MM-DD) para el preset elegido,
 // relativo a "hoy". Quincena = 1-15 o 16-fin de mes, según el día actual.
-export function calcularRangoPeriodo(preset: PeriodoPreset, hoy: Date) {
+// "personalizado" permite un rango arbitrario (ej. una sesión atrasada que
+// se registró de un mes anterior al que se está viendo); si no se pasan
+// fechas válidas, cae de vuelta al mes actual.
+export function calcularRangoPeriodo(
+  preset: PeriodoPreset,
+  hoy: Date,
+  rangoPersonalizado?: { desde: string; hasta: string }
+) {
   const anio = hoy.getFullYear();
   const mes = hoy.getMonth();
   const dia = hoy.getDate();
   const aISO = (d: Date) => d.toISOString().slice(0, 10);
+
+  if (preset === "personalizado" && rangoPersonalizado?.desde && rangoPersonalizado?.hasta) {
+    return {
+      inicio: rangoPersonalizado.desde,
+      fin: rangoPersonalizado.hasta,
+      label: `${rangoPersonalizado.desde} a ${rangoPersonalizado.hasta}`,
+    };
+  }
 
   if (preset === "semana") {
     const diaSemana = hoy.getDay();

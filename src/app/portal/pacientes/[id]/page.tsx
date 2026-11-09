@@ -239,6 +239,7 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
                       estadoInicial={s.estado}
                       notaInicial={s.nota}
                       homoclaveInicial={s.homoclave}
+                      pagadaInicial={s.pagada}
                       serieId={s.serie_id}
                       cantidadEnSerie={s.serie_id ? (pendientesPorSerie.get(s.serie_id) ?? 0) : 0}
                       accionable={s.fecha <= hoy}
@@ -273,6 +274,7 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
                       estadoInicial={s.estado}
                       notaInicial={s.nota}
                       homoclaveInicial={s.homoclave}
+                      pagadaInicial={s.pagada}
                       accionable={s.fecha <= hoy}
                     />
                   </div>

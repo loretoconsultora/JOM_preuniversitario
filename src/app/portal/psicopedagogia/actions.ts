@@ -195,6 +195,21 @@ export async function marcarAsistenciaPsicopedagogia(sesionId: string, estado: "
   }
 }
 
+export async function marcarPagadaPsicopedagogia(sesionId: string, pagada: boolean): Promise<ActionResult> {
+  await requirePsicopedagogia();
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("psicopedagogia_sesiones").update({ pagada }).eq("id", sesionId);
+    if (error) return actionError(error.message);
+    revalidatePath("/portal/psicopedagogia");
+    revalidatePath("/portal/asistencia-psicopedagogia");
+    return actionOk({});
+  } catch (e) {
+    console.error("marcarPagadaPsicopedagogia:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
 export async function eliminarSesionPsicopedagogia(sesionId: string): Promise<ActionResult> {
   await requirePsicopedagogia();
   try {

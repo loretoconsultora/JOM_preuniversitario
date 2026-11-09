@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 
-type Conteo = { SR: number; CNA: number; CT: number; SC: number };
+type Conteo = { SR: number; CNA: number; CT: number; SC: number; pagadas: number; porPagar: number };
 type FilaHomoclaves = Conteo & { nombre: string };
 
 function csvEscape(valor: string | number) {
@@ -22,9 +22,17 @@ export function DescargarReporteHomoclavesCSV({
   totales: Conteo;
 }) {
   function descargar() {
-    const encabezado = ["Nombre", "SR (realizadas)", "CNA (cancel. no anticipada)", "CT (cancel. de la sesión)", "SC (compensatorias)"];
-    const filasCSV = filas.map((f) => [f.nombre, f.SR, f.CNA, f.CT, f.SC]);
-    const filaTotal = ["Total", totales.SR, totales.CNA, totales.CT, totales.SC];
+    const encabezado = [
+      "Nombre",
+      "SR (realizadas)",
+      "CNA (cancel. no anticipada)",
+      "CT (cancel. de la sesión)",
+      "SC (compensatorias)",
+      "Pagadas",
+      "Por pagar",
+    ];
+    const filasCSV = filas.map((f) => [f.nombre, f.SR, f.CNA, f.CT, f.SC, f.pagadas, f.porPagar]);
+    const filaTotal = ["Total", totales.SR, totales.CNA, totales.CT, totales.SC, totales.pagadas, totales.porPagar];
 
     const lineas = [
       [`Reporte de sesiones — ${profesional}`],

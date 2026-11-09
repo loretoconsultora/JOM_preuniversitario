@@ -1,29 +1,27 @@
-import Link from "next/link";
 import type { PeriodoPreset } from "@/lib/estado-sesion";
 import { HOMOCLAVE_LABEL } from "@/lib/estado-sesion";
 import { DescargarReporteHomoclavesCSV } from "@/components/descargar-reporte-homoclaves-csv";
+import { SelectorPeriodo } from "@/components/selector-periodo";
 
-type Conteo = { SR: number; CNA: number; CT: number; SC: number };
+type Conteo = { SR: number; CNA: number; CT: number; SC: number; pagadas: number; porPagar: number };
 type FilaHomoclaves = Conteo & { nombre: string };
-
-const PRESETS: { value: PeriodoPreset; label: string }[] = [
-  { value: "semana", label: "Semana actual" },
-  { value: "quincena", label: "Quincena actual" },
-  { value: "mes", label: "Mes actual" },
-];
 
 export function ResumenHomoclaves({
   profesional,
   periodoActual,
   periodoLabel,
-  hrefParaPeriodo,
+  desdeActual,
+  hastaActual,
+  basePath,
   filas,
   totales,
 }: {
   profesional: string;
   periodoActual: PeriodoPreset;
   periodoLabel: string;
-  hrefParaPeriodo: (p: PeriodoPreset) => string;
+  desdeActual?: string;
+  hastaActual?: string;
+  basePath: string;
   filas: FilaHomoclaves[];
   totales: Conteo;
 }) {
@@ -31,24 +29,15 @@ export function ResumenHomoclaves({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-semibold">Resumen para contabilidad ({periodoLabel})</p>
-        <div className="flex gap-1.5">
-          {PRESETS.map((p) => (
-            <Link
-              key={p.value}
-              href={hrefParaPeriodo(p.value)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                periodoActual === p.value
-                  ? "bg-jom-ink text-jom-white dark:bg-jom-white dark:text-jom-ink"
-                  : "glass hover:opacity-80"
-              }`}
-            >
-              {p.label}
-            </Link>
-          ))}
-        </div>
+        <SelectorPeriodo
+          periodoActual={periodoActual}
+          desdeActual={desdeActual}
+          hastaActual={hastaActual}
+          basePath={basePath}
+        />
       </div>
 
-      <div className="glass grid grid-cols-2 gap-3 rounded-2xl p-5 sm:grid-cols-4">
+      <div className="glass grid grid-cols-2 gap-3 rounded-2xl p-5 sm:grid-cols-6">
         <div>
           <p className="text-muted text-xs uppercase">{HOMOCLAVE_LABEL.SR}</p>
           <p className="text-xl font-semibold">{totales.SR}</p>
@@ -65,6 +54,14 @@ export function ResumenHomoclaves({
           <p className="text-muted text-xs uppercase">{HOMOCLAVE_LABEL.SC}</p>
           <p className="text-xl font-semibold">{totales.SC}</p>
         </div>
+        <div>
+          <p className="text-muted text-xs uppercase">Pagadas</p>
+          <p className="text-xl font-semibold">{totales.pagadas}</p>
+        </div>
+        <div>
+          <p className="text-muted text-xs uppercase">Por pagar</p>
+          <p className="text-xl font-semibold">{totales.porPagar}</p>
+        </div>
       </div>
 
       {filas.length > 0 && (
@@ -77,6 +74,8 @@ export function ResumenHomoclaves({
                 <th className="px-5 py-3 font-medium">CNA</th>
                 <th className="px-5 py-3 font-medium">CT</th>
                 <th className="px-5 py-3 font-medium">SC</th>
+                <th className="px-5 py-3 font-medium">Pagadas</th>
+                <th className="px-5 py-3 font-medium">Por pagar</th>
               </tr>
             </thead>
             <tbody>
@@ -87,6 +86,8 @@ export function ResumenHomoclaves({
                   <td className="px-5 py-3">{f.CNA}</td>
                   <td className="px-5 py-3">{f.CT}</td>
                   <td className="px-5 py-3">{f.SC}</td>
+                  <td className="px-5 py-3">{f.pagadas}</td>
+                  <td className="px-5 py-3">{f.porPagar}</td>
                 </tr>
               ))}
             </tbody>
@@ -97,6 +98,8 @@ export function ResumenHomoclaves({
                 <td className="px-5 py-3">{totales.CNA}</td>
                 <td className="px-5 py-3">{totales.CT}</td>
                 <td className="px-5 py-3">{totales.SC}</td>
+                <td className="px-5 py-3">{totales.pagadas}</td>
+                <td className="px-5 py-3">{totales.porPagar}</td>
               </tr>
             </tfoot>
           </table>

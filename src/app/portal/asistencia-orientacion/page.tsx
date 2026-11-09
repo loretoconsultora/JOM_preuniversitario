@@ -6,7 +6,7 @@ import { AlumnoSelector } from "@/components/alumno-selector";
 import { OrientadoQuickActions } from "@/components/orientado-quick-actions";
 import { HomoclaveLeyenda } from "@/components/homoclave-leyenda";
 import { ResumenHomoclaves } from "@/components/resumen-homoclaves";
-import { calcularRangoPeriodo, contarPorHomoclave, type PeriodoPreset } from "@/lib/estado-sesion";
+import { calcularRangoPeriodo, contarPorHomoclave, contarPagos, type PeriodoPreset } from "@/lib/estado-sesion";
 import type { Orientado, OrientacionSesion } from "@/types/database";
 
 function formatFecha(fecha: string) {
@@ -124,6 +124,7 @@ function Grupo({
                   estadoInicial={s.estado}
                   notaInicial={s.nota}
                   homoclaveInicial={s.homoclave}
+                  pagadaInicial={s.pagada}
                   accionable={s.fecha <= hoy}
                 />
               ) : (
@@ -140,14 +141,14 @@ function Grupo({
 export default async function AsistenciaOrientacionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; alumno?: string; periodo?: string }>;
+  searchParams: Promise<{ vista?: string; alumno?: string; periodo?: string; desde?: string; hasta?: string }>;
 }) {
   const profile = await requireCoachVocacionalODirectora();
   const esCoach = profile.role === "coach_vocacional";
-  const { vista: vistaParam, alumno: alumnoParam, periodo: periodoParam } = await searchParams;
+  const { vista: vistaParam, alumno: alumnoParam, periodo: periodoParam, desde, hasta } = await searchParams;
   const vista = vistaParam === "alumno" ? "alumno" : "calendario";
   const periodo: PeriodoPreset =
-    periodoParam === "semana" || periodoParam === "quincena" ? periodoParam : "mes";
+    periodoParam === "semana" || periodoParam === "quincena" || periodoParam === "personalizado" ? periodoParam : "mes";
   const supabase = await createClient();
 
   const [{ data: orientados }, { data: sesiones }] = await Promise.all([
@@ -180,20 +181,26 @@ export default async function AsistenciaOrientacionPage({
     ...calcularStats(sesionesList.filter((s) => s.orientado_id === o.id), hoy),
   }));
 
-  const rangoPeriodo = calcularRangoPeriodo(periodo, ahora);
+  const rangoPeriodo = calcularRangoPeriodo(periodo, ahora, desde && hasta ? { desde, hasta } : undefined);
   const filasHomoclaves = orientadosList
-    .map((o) => ({
-      nombre: o.nombre,
-      ...contarPorHomoclave(
-        sesionesList.filter((s) => s.orientado_id === o.id && s.fecha >= rangoPeriodo.inicio && s.fecha <= rangoPeriodo.fin)
-      ),
-    }))
+    .map((o) => {
+      const delOrientadoPeriodo = sesionesList.filter(
+        (s) => s.orientado_id === o.id && s.fecha >= rangoPeriodo.inicio && s.fecha <= rangoPeriodo.fin
+      );
+      return { nombre: o.nombre, ...contarPorHomoclave(delOrientadoPeriodo), ...contarPagos(delOrientadoPeriodo) };
+    })
     .filter((f) => f.SR + f.CNA + f.CT + f.SC > 0);
   const totalesHomoclaves = filasHomoclaves.reduce(
-    (acc, f) => ({ SR: acc.SR + f.SR, CNA: acc.CNA + f.CNA, CT: acc.CT + f.CT, SC: acc.SC + f.SC }),
-    { SR: 0, CNA: 0, CT: 0, SC: 0 }
+    (acc, f) => ({
+      SR: acc.SR + f.SR,
+      CNA: acc.CNA + f.CNA,
+      CT: acc.CT + f.CT,
+      SC: acc.SC + f.SC,
+      pagadas: acc.pagadas + f.pagadas,
+      porPagar: acc.porPagar + f.porPagar,
+    }),
+    { SR: 0, CNA: 0, CT: 0, SC: 0, pagadas: 0, porPagar: 0 }
   );
-  const hrefParaPeriodo = (p: PeriodoPreset) => `/portal/asistencia-orientacion?vista=${vista}&periodo=${p}`;
 
   const citasPorConfirmar = orientadoId
     ? sesionesList
@@ -226,7 +233,9 @@ export default async function AsistenciaOrientacionPage({
           profesional={profile.nombre_completo}
           periodoActual={periodo}
           periodoLabel={rangoPeriodo.label}
-          hrefParaPeriodo={hrefParaPeriodo}
+          desdeActual={desde}
+          hastaActual={hasta}
+          basePath={`/portal/asistencia-orientacion?vista=${vista}`}
           filas={filasHomoclaves}
           totales={totalesHomoclaves}
         />
@@ -309,6 +318,7 @@ export default async function AsistenciaOrientacionPage({
                           estadoInicial={s.estado}
                           notaInicial={s.nota}
                           homoclaveInicial={s.homoclave}
+                          pagadaInicial={s.pagada}
                           accionable
                         />
                       </div>

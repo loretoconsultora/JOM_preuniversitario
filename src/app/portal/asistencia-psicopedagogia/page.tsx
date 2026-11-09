@@ -6,7 +6,7 @@ import { AlumnoSelector } from "@/components/alumno-selector";
 import { PsicopedagogiaQuickActions } from "@/components/psicopedagogia-quick-actions";
 import { HomoclaveLeyenda } from "@/components/homoclave-leyenda";
 import { ResumenHomoclaves } from "@/components/resumen-homoclaves";
-import { calcularRangoPeriodo, contarPorHomoclave, type PeriodoPreset } from "@/lib/estado-sesion";
+import { calcularRangoPeriodo, contarPorHomoclave, contarPagos, type PeriodoPreset } from "@/lib/estado-sesion";
 import type { PsicopedagogiaCaso, PsicopedagogiaSesion } from "@/types/database";
 
 function formatFecha(fecha: string) {
@@ -121,6 +121,7 @@ function Grupo({
                 estadoInicial={s.estado}
                 notaInicial={s.nota}
                 homoclaveInicial={s.homoclave}
+                pagadaInicial={s.pagada}
                 accionable={s.fecha <= hoy}
               />
             </div>
@@ -134,13 +135,13 @@ function Grupo({
 export default async function AsistenciaPsicopedagogiaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; caso?: string; periodo?: string }>;
+  searchParams: Promise<{ vista?: string; caso?: string; periodo?: string; desde?: string; hasta?: string }>;
 }) {
   const profile = await requirePsicopedagogia();
-  const { vista: vistaParam, caso: casoParam, periodo: periodoParam } = await searchParams;
+  const { vista: vistaParam, caso: casoParam, periodo: periodoParam, desde, hasta } = await searchParams;
   const vista = vistaParam === "caso" ? "caso" : "calendario";
   const periodo: PeriodoPreset =
-    periodoParam === "semana" || periodoParam === "quincena" ? periodoParam : "mes";
+    periodoParam === "semana" || periodoParam === "quincena" || periodoParam === "personalizado" ? periodoParam : "mes";
   const supabase = await createClient();
 
   const [{ data: casos }, { data: sesiones }] = await Promise.all([
@@ -171,20 +172,26 @@ export default async function AsistenciaPsicopedagogiaPage({
     ...calcularStats(sesionesList.filter((s) => s.caso_id === c.id), hoy),
   }));
 
-  const rangoPeriodo = calcularRangoPeriodo(periodo, ahora);
+  const rangoPeriodo = calcularRangoPeriodo(periodo, ahora, desde && hasta ? { desde, hasta } : undefined);
   const filasHomoclaves = casosList
-    .map((c) => ({
-      nombre: c.nombre,
-      ...contarPorHomoclave(
-        sesionesList.filter((s) => s.caso_id === c.id && s.fecha >= rangoPeriodo.inicio && s.fecha <= rangoPeriodo.fin)
-      ),
-    }))
+    .map((c) => {
+      const delCasoPeriodo = sesionesList.filter(
+        (s) => s.caso_id === c.id && s.fecha >= rangoPeriodo.inicio && s.fecha <= rangoPeriodo.fin
+      );
+      return { nombre: c.nombre, ...contarPorHomoclave(delCasoPeriodo), ...contarPagos(delCasoPeriodo) };
+    })
     .filter((f) => f.SR + f.CNA + f.CT + f.SC > 0);
   const totalesHomoclaves = filasHomoclaves.reduce(
-    (acc, f) => ({ SR: acc.SR + f.SR, CNA: acc.CNA + f.CNA, CT: acc.CT + f.CT, SC: acc.SC + f.SC }),
-    { SR: 0, CNA: 0, CT: 0, SC: 0 }
+    (acc, f) => ({
+      SR: acc.SR + f.SR,
+      CNA: acc.CNA + f.CNA,
+      CT: acc.CT + f.CT,
+      SC: acc.SC + f.SC,
+      pagadas: acc.pagadas + f.pagadas,
+      porPagar: acc.porPagar + f.porPagar,
+    }),
+    { SR: 0, CNA: 0, CT: 0, SC: 0, pagadas: 0, porPagar: 0 }
   );
-  const hrefParaPeriodo = (p: PeriodoPreset) => `/portal/asistencia-psicopedagogia?vista=${vista}&periodo=${p}`;
 
   const citasPorConfirmar = casoId
     ? sesionesList
@@ -214,7 +221,9 @@ export default async function AsistenciaPsicopedagogiaPage({
         profesional={profile.nombre_completo}
         periodoActual={periodo}
         periodoLabel={rangoPeriodo.label}
-        hrefParaPeriodo={hrefParaPeriodo}
+        desdeActual={desde}
+        hastaActual={hasta}
+        basePath={`/portal/asistencia-psicopedagogia?vista=${vista}`}
         filas={filasHomoclaves}
         totales={totalesHomoclaves}
       />
@@ -293,6 +302,7 @@ export default async function AsistenciaPsicopedagogiaPage({
                           estadoInicial={s.estado}
                           notaInicial={s.nota}
                           homoclaveInicial={s.homoclave}
+                          pagadaInicial={s.pagada}
                           accionable
                         />
                       </div>

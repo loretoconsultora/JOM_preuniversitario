@@ -198,6 +198,21 @@ export async function marcarAsistenciaOrientacion(sesionId: string, estado: "asi
   }
 }
 
+export async function marcarPagadaOrientacion(sesionId: string, pagada: boolean): Promise<ActionResult> {
+  await requireCoachVocacional();
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("orientacion_sesiones").update({ pagada }).eq("id", sesionId);
+    if (error) return actionError(error.message);
+    revalidatePath("/portal/orientados");
+    revalidatePath("/portal/asistencia-orientacion");
+    return actionOk({});
+  } catch (e) {
+    console.error("marcarPagadaOrientacion:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
 export async function eliminarSesionOrientacion(sesionId: string): Promise<ActionResult> {
   await requireCoachVocacional();
   try {
