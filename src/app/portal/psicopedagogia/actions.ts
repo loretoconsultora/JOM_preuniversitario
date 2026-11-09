@@ -125,6 +125,8 @@ export async function crearAgendamientoPsicopedagogia(casoId: string, input: Age
 
   if (filas.length === 0) return actionError("Agrega al menos una sesión.");
 
+  const serieId = input.recurrente && filas.length > 1 ? crypto.randomUUID() : null;
+
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("psicopedagogia_sesiones").insert(
@@ -133,14 +135,37 @@ export async function crearAgendamientoPsicopedagogia(casoId: string, input: Age
         fecha: f.fecha,
         hora: f.hora,
         creado_por: profile.id,
+        serie_id: serieId,
       }))
     );
     if (error) return actionError(error.message);
 
     revalidatePath(`/portal/psicopedagogia/${casoId}`);
+    revalidatePath("/portal/asistencia-psicopedagogia");
     return actionOk({});
   } catch (e) {
     console.error("crearAgendamientoPsicopedagogia:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
+export async function eliminarSerieSesionesPsicopedagogia(serieId: string): Promise<ActionResult<{ eliminadas: number }>> {
+  await requirePsicopedagogia();
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("psicopedagogia_sesiones")
+      .delete()
+      .eq("serie_id", serieId)
+      .eq("estado", "pendiente")
+      .select("id");
+    if (error) return actionError(error.message);
+
+    revalidatePath("/portal/psicopedagogia");
+    revalidatePath("/portal/asistencia-psicopedagogia");
+    return actionOk({ eliminadas: data?.length ?? 0 });
+  } catch (e) {
+    console.error("eliminarSerieSesionesPsicopedagogia:", e);
     return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
 }

@@ -70,6 +70,12 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
     }
   }
   const hoy = new Date().toISOString().slice(0, 10);
+  const pendientesPorSerie = new Map<string, number>();
+  for (const s of sesionesList) {
+    if (s.serie_id && s.estado === "pendiente") {
+      pendientesPorSerie.set(s.serie_id, (pendientesPorSerie.get(s.serie_id) ?? 0) + 1);
+    }
+  }
   const proximas = sesionesList.filter((s) => s.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const historial = sesionesList.filter((s) => s.fecha < hoy); // ya viene ordenado desc por la consulta
   const proximasVisibles = proximas.slice(0, 3);
@@ -232,6 +238,9 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
                       sesionId={s.id}
                       estadoInicial={s.estado}
                       notaInicial={s.nota}
+                      homoclaveInicial={s.homoclave}
+                      serieId={s.serie_id}
+                      cantidadEnSerie={s.serie_id ? (pendientesPorSerie.get(s.serie_id) ?? 0) : 0}
                       accionable={s.fecha <= hoy}
                       permitirEliminar
                     />
@@ -263,6 +272,7 @@ export default async function PacienteDetallePage({ params }: { params: Promise<
                       sesionId={s.id}
                       estadoInicial={s.estado}
                       notaInicial={s.nota}
+                      homoclaveInicial={s.homoclave}
                       accionable={s.fecha <= hoy}
                     />
                   </div>

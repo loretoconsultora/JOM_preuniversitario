@@ -255,6 +255,11 @@ export async function crearAgendamiento(pacienteId: string, input: AgendamientoI
 
   if (filas.length === 0) return actionError("Agrega al menos una sesión.");
 
+  // Agrupa las sesiones de una misma recurrencia para poder borrarlas todas
+  // de un golpe después (ver eliminarSerieSesiones). Una sola sesión no
+  // amerita serie.
+  const serieId = input.recurrente && filas.length > 1 ? crypto.randomUUID() : null;
+
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("paciente_sesiones").insert(
@@ -263,6 +268,7 @@ export async function crearAgendamiento(pacienteId: string, input: AgendamientoI
         fecha: f.fecha,
         hora: f.hora,
         creado_por: profile.id,
+        serie_id: serieId,
       }))
     );
     if (error) return actionError(error.message);
@@ -272,6 +278,30 @@ export async function crearAgendamiento(pacienteId: string, input: AgendamientoI
     return actionOk({});
   } catch (e) {
     console.error("crearAgendamiento:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
+// Borra todas las sesiones pendientes de una misma recurrencia (ej. "todos
+// los lunes 5pm"), sin tocar las que ya se marcaron asistió/no asistió/
+// reagendada: eso es historial y no se borra en bloque.
+export async function eliminarSerieSesiones(serieId: string): Promise<ActionResult<{ eliminadas: number }>> {
+  await requireTerapeuta();
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("paciente_sesiones")
+      .delete()
+      .eq("serie_id", serieId)
+      .eq("estado", "pendiente")
+      .select("id");
+    if (error) return actionError(error.message);
+
+    revalidatePath("/portal/asistencia");
+    revalidatePath("/portal/pacientes");
+    return actionOk({ eliminadas: data?.length ?? 0 });
+  } catch (e) {
+    console.error("eliminarSerieSesiones:", e);
     return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
 }

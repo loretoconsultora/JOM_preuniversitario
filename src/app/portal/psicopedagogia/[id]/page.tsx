@@ -37,6 +37,12 @@ export default async function CasoPsicopedagogiaDetallePage({ params }: { params
   const alumnoPerfil = alumnoVinculado as Profile | null;
 
   const hoy = new Date().toISOString().slice(0, 10);
+  const pendientesPorSerie = new Map<string, number>();
+  for (const s of sesionesList) {
+    if (s.serie_id && s.estado === "pendiente") {
+      pendientesPorSerie.set(s.serie_id, (pendientesPorSerie.get(s.serie_id) ?? 0) + 1);
+    }
+  }
   const proximas = sesionesList.filter((s) => s.fecha >= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const historial = sesionesList.filter((s) => s.fecha < hoy);
   const proximasVisibles = proximas.slice(0, 3);
@@ -124,7 +130,16 @@ export default async function CasoPsicopedagogiaDetallePage({ params }: { params
                       {formatFecha(s.fecha)}
                       {s.hora && ` · ${s.hora.slice(0, 5)}`}
                     </span>
-                    <PsicopedagogiaQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable={s.fecha <= hoy} permitirEliminar />
+                    <PsicopedagogiaQuickActions
+                      sesionId={s.id}
+                      estadoInicial={s.estado}
+                      notaInicial={s.nota}
+                      homoclaveInicial={s.homoclave}
+                      serieId={s.serie_id}
+                      cantidadEnSerie={s.serie_id ? (pendientesPorSerie.get(s.serie_id) ?? 0) : 0}
+                      accionable={s.fecha <= hoy}
+                      permitirEliminar
+                    />
                   </div>
                 ))}
               </div>
@@ -143,7 +158,13 @@ export default async function CasoPsicopedagogiaDetallePage({ params }: { params
                       {formatFecha(s.fecha)}
                       {s.hora && ` · ${s.hora.slice(0, 5)}`}
                     </span>
-                    <PsicopedagogiaQuickActions sesionId={s.id} estadoInicial={s.estado} notaInicial={s.nota} accionable={s.fecha <= hoy} />
+                    <PsicopedagogiaQuickActions
+                      sesionId={s.id}
+                      estadoInicial={s.estado}
+                      notaInicial={s.nota}
+                      homoclaveInicial={s.homoclave}
+                      accionable={s.fecha <= hoy}
+                    />
                   </div>
                 ))}
               </div>

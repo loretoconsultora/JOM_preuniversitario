@@ -129,6 +129,8 @@ export async function crearAgendamientoOrientacion(orientadoId: string, input: A
 
   if (filas.length === 0) return actionError("Agrega al menos una sesión.");
 
+  const serieId = input.recurrente && filas.length > 1 ? crypto.randomUUID() : null;
+
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("orientacion_sesiones").insert(
@@ -137,14 +139,37 @@ export async function crearAgendamientoOrientacion(orientadoId: string, input: A
         fecha: f.fecha,
         hora: f.hora,
         creado_por: profile.id,
+        serie_id: serieId,
       }))
     );
     if (error) return actionError(error.message);
 
     revalidatePath(`/portal/orientados/${orientadoId}`);
+    revalidatePath("/portal/asistencia-orientacion");
     return actionOk({});
   } catch (e) {
     console.error("crearAgendamientoOrientacion:", e);
+    return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
+  }
+}
+
+export async function eliminarSerieSesionesOrientacion(serieId: string): Promise<ActionResult<{ eliminadas: number }>> {
+  await requireCoachVocacional();
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("orientacion_sesiones")
+      .delete()
+      .eq("serie_id", serieId)
+      .eq("estado", "pendiente")
+      .select("id");
+    if (error) return actionError(error.message);
+
+    revalidatePath("/portal/orientados");
+    revalidatePath("/portal/asistencia-orientacion");
+    return actionOk({ eliminadas: data?.length ?? 0 });
+  } catch (e) {
+    console.error("eliminarSerieSesionesOrientacion:", e);
     return actionError(e instanceof Error ? e.message : ERROR_INESPERADO);
   }
 }

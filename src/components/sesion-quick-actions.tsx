@@ -2,8 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Pencil, Trash2 } from "lucide-react";
-import { marcarAsistencia, guardarNotaSesion, reagendarSesion, eliminarSesion } from "@/app/portal/pacientes/actions";
+import { CalendarClock, CalendarX2, Pencil, Trash2 } from "lucide-react";
+import {
+  marcarAsistencia,
+  guardarNotaSesion,
+  reagendarSesion,
+  eliminarSesion,
+  eliminarSerieSesiones,
+} from "@/app/portal/pacientes/actions";
 import type { EstadoSesion, Homoclave } from "@/types/database";
 import { ESTADO_LABEL, ESTADO_CLASS, HOMOCLAVE_LABEL, HOMOCLAVE_CLASS } from "@/lib/estado-sesion";
 import { RichTextEditor } from "@/components/rich-text-editor";
@@ -13,6 +19,8 @@ export function SesionQuickActions({
   estadoInicial,
   notaInicial,
   homoclaveInicial = null,
+  serieId = null,
+  cantidadEnSerie = 0,
   accionable,
   permitirEliminar = false,
 }: {
@@ -20,6 +28,8 @@ export function SesionQuickActions({
   estadoInicial: EstadoSesion;
   notaInicial: string | null;
   homoclaveInicial?: Homoclave | null;
+  serieId?: string | null;
+  cantidadEnSerie?: number;
   accionable: boolean;
   permitirEliminar?: boolean;
 }) {
@@ -117,6 +127,30 @@ export function SesionQuickActions({
     }
   }
 
+  async function eliminarSerie() {
+    if (!serieId) return;
+    if (
+      !window.confirm(
+        `¿Eliminar las ${cantidadEnSerie} sesiones pendientes de esta recurrencia? Las que ya tengan asistencia, cancelación o reprogramación registrada no se tocan. Esta acción no se puede deshacer.`
+      )
+    )
+      return;
+    setCargando(true);
+    setError(null);
+    try {
+      const resultado = await eliminarSerieSesiones(serieId);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("No se pudo eliminar la recurrencia. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setCargando(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -182,6 +216,18 @@ export function SesionQuickActions({
             className="text-jom-pink inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
           >
             <Trash2 size={12} /> Eliminar
+          </button>
+        )}
+
+        {permitirEliminar && serieId && cantidadEnSerie > 1 && (
+          <button
+            type="button"
+            onClick={eliminarSerie}
+            disabled={cargando}
+            title="Elimina todas las sesiones pendientes de esta recurrencia"
+            className="text-jom-pink inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+          >
+            <CalendarX2 size={12} /> Eliminar recurrencia ({cantidadEnSerie})
           </button>
         )}
       </div>

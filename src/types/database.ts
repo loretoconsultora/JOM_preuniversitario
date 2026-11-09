@@ -275,6 +275,7 @@ export type PacienteSesion = {
   nota: string | null;
   homoclave: Homoclave | null;
   reagendada_a_id: string | null;
+  serie_id: string | null;
   creado_por: string;
   created_at: string;
 };
@@ -301,6 +302,7 @@ export type OrientacionSesion = {
   nota: string | null;
   homoclave: Homoclave | null;
   reagendada_a_id: string | null;
+  serie_id: string | null;
   creado_por: string;
   created_at: string;
 };
@@ -424,6 +426,7 @@ export type PsicopedagogiaSesion = {
   nota: string | null;
   homoclave: Homoclave | null;
   reagendada_a_id: string | null;
+  serie_id: string | null;
   creado_por: string;
   created_at: string;
 };
